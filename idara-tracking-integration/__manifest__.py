@@ -8,10 +8,7 @@
     "website": "https://idara.net",
     "license": "LGPL-3",
     "depends": ["base", "fleet", "web"],
-    "data": [
-        "security/ir.model.access.csv",
-        "views/tracking_position_views.xml"
-    ],
+    "data": ["security/ir.model.access.csv"],
     "images": ["static/description/cover.png"],
     "installable": True,
     "application": False
