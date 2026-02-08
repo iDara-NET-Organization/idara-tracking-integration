@@ -25,6 +25,7 @@
         'security/ir.model.access.csv',
         'views/tracking_device_views.xml',
         'views/tracking_config_views.xml',
+        'views/tracking_location_views.xml',
         'views/tracking_menu_views.xml',
     ],
     'assets': {
