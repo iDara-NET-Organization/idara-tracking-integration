@@ -1,83 +1,78 @@
 <?xml version="1.0" encoding="utf-8"?>
 <odoo>
-    <data>
-
-        <!-- Configuration Form View -->
-        <record id="view_tracking_config_form" model="ir.ui.view">
-            <field name="name">tracking.config.form</field>
-            <field name="model">tracking.config</field>
-            <field name="arch" type="xml">
-                <form string="Tracking Configuration">
-                    <header>
-                        <button name="action_test_connection" string="Test Connection" type="object" class="btn-primary"/>
-                        <button name="action_sync_devices" string="Sync Devices" type="object" class="btn-success"/>
-                        <button name="action_sync_locations" string="Sync Locations" type="object" class="btn-info"/>
-                        <field name="connection_status" widget="statusbar" statusbar_visible="not_tested,success,failed"/>
-                    </header>
-                    <sheet>
-                        <div class="oe_button_box" name="button_box">
-                            <button class="oe_stat_button" type="action" icon="fa-hdd-o">
-                                <field string="Devices" name="id" widget="statinfo"/>
-                            </button>
+    <!-- Form View -->
+    <record id="view_tracking_config_form" model="ir.ui.view">
+        <field name="name">tracking.config.form</field>
+        <field name="model">tracking.config</field>
+        <field name="arch" type="xml">
+            <form string="Tracking Configuration">
+                <header>
+                    <button name="test_connection" string="Test Connection" type="object" class="btn-primary"/>
+                </header>
+                <sheet>
+                    <div class="oe_button_box" name="button_box">
+                        <button class="oe_stat_button" type="object" name="action_view_devices" icon="fa-hdd-o">
+                            <field string="Devices" name="device_count" widget="statinfo"/>
+                        </button>
+                    </div>
+                    <div class="oe_title">
+                        <div class="d-flex align-items-center mb-3">
+                            <img src="/idara_tracking_integration/static/src/img/logo.png" 
+                                 alt="Idara Tracking" 
+                                 style="max-height: 60px; margin-right: 15px; object-fit: contain;"/>
+                            <h1>
+                                <field name="name" placeholder="Configuration Name"/>
+                            </h1>
                         </div>
-                        <group>
-                            <group name="basic_info">
-                                <field name="name"/>
-                                <field name="active"/>
-                                <field name="sync_interval"/>
-                            </group>
-                            <group name="connection_info">
-                                <field name="last_sync" readonly="1"/>
-                                <field name="connection_status" invisible="1"/>
-                            </group>
-                        </group>
+                    </div>
+                    <group>
                         <group string="API Configuration">
-                            <group>
-                                <field name="api_url"/>
-                                <field name="api_key" password="True"/>
-                            </group>
-                            <group>
-                                <field name="api_hash" password="True"/>
-                                <field name="user_api_hash" password="True"/>
-                            </group>
+                            <field name="api_url"/>
+                            <field name="api_key" password="True"/>
                         </group>
-                        <group string="Connection Status" attrs="{'invisible': [('error_message', '=', False)]}">
-                            <field name="error_message" nolabel="1" readonly="1"/>
+                        <group string="Authentication">
+                            <field name="username"/>
+                            <field name="password" password="True"/>
                         </group>
-                    </sheet>
-                </form>
-            </field>
-        </record>
+                    </group>
+                    <group>
+                        <group>
+                            <field name="active"/>
+                            <field name="company_id" groups="base.group_multi_company"/>
+                        </group>
+                    </group>
+                </sheet>
+            </form>
+        </field>
+    </record>
 
-        <!-- Configuration Tree View -->
-        <record id="view_tracking_config_tree" model="ir.ui.view">
-            <field name="name">tracking.config.tree</field>
-            <field name="model">tracking.config</field>
-            <field name="arch" type="xml">
-                <tree string="Tracking Configurations">
-                    <field name="name"/>
-                    <field name="api_url"/>
-                    <field name="connection_status"/>
-                    <field name="last_sync"/>
-                    <field name="active"/>
-                </tree>
-            </field>
-        </record>
+    <!-- Tree View -->
+    <record id="view_tracking_config_tree" model="ir.ui.view">
+        <field name="name">tracking.config.tree</field>
+        <field name="model">tracking.config</field>
+        <field name="arch" type="xml">
+            <tree string="Tracking Configurations">
+                <field name="name"/>
+                <field name="api_url"/>
+                <field name="device_count"/>
+                <field name="active"/>
+                <field name="company_id" groups="base.group_multi_company"/>
+            </tree>
+        </field>
+    </record>
 
-        <!-- Configuration Action -->
-        <record id="action_tracking_config" model="ir.actions.act_window">
-            <field name="name">Configuration</field>
-            <field name="res_model">tracking.config</field>
-            <field name="view_mode">tree,form</field>
-            <field name="help" type="html">
-                <p class="o_view_nocontent_smiling_face">
-                    Create your first tracking configuration
-                </p>
-                <p>
-                    Configure the connection to your tracking API server.
-                </p>
-            </field>
-        </record>
-
-    </data>
+    <!-- Action -->
+    <record id="action_tracking_config" model="ir.actions.act_window">
+        <field name="name">Tracking Configuration</field>
+        <field name="res_model">tracking.config</field>
+        <field name="view_mode">tree,form</field>
+        <field name="help" type="html">
+            <p class="o_view_nocontent_smiling_face">
+                Create your first tracking configuration
+            </p>
+            <p>
+                Configure your GPS tracking system integration here.
+            </p>
+        </field>
+    </record>
 </odoo>

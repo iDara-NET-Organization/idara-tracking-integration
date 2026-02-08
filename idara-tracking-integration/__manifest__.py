@@ -2,42 +2,38 @@
 {
     'name': 'Idara Tracking Integration',
     'version': '1.0.0',
-    'category': 'Fleet Management',
-    'summary': 'AVL Tracking Integration with Live Map Visualization',
+    'category': 'Operations',
+    'summary': 'GPS Tracking and Fleet Management Integration',
     'description': """
-        AVL Tracking Integration Module
-        ================================
+        Idara Tracking Integration Module
+        ==================================
         
-        Features:
-        ---------
-        * Connect to tracking.idara.net API
-        * Retrieve real-time device locations
-        * Display devices on interactive live map
-        * Track device status and alerts
-        * Historical route visualization
-        * Device management and configuration
+        This module provides comprehensive GPS tracking and fleet management capabilities:
+        
+        * Device Management
+        * Real-time Location Tracking
+        * Geofencing
+        * Route History
+        * Alerts and Notifications
+        * Integration with tracking devices
     """,
-    'author': 'Your Company',
-    'website': 'https://www.yourcompany.com',
+    'author': 'Idara Net',
+    'website': 'https://idaranet.com',
+    'license': 'LGPL-3',
     'depends': ['base', 'web'],
     'data': [
-        'security/tracking_security.xml',
         'security/ir.model.access.csv',
-        'views/tracking_config_views.xml',
         'views/tracking_device_views.xml',
-        'views/tracking_location_views.xml',
-        'views/tracking_menu.xml',
-        'data/tracking_cron.xml',
+        'views/tracking_config_views.xml',
+        'views/tracking_menu_views.xml',
     ],
     'assets': {
         'web.assets_backend': [
-            'idara-tracking-integration/static/src/js/tracking_map_widget.js',
-            'idara-tracking-integration/static/src/xml/tracking_map_widget.xml',
-            'idara-tracking-integration/static/src/css/tracking_map.css',
+            'idara_tracking_integration/static/src/img/logo.png',
         ],
     },
+    'images': ['static/description/icon.png'],
     'installable': True,
     'application': True,
     'auto_install': False,
-    'license': 'LGPL-3',
 }

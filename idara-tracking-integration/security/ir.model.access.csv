@@ -1,9 +1,3 @@
 id,name,model_id:id,group_id:id,perm_read,perm_write,perm_create,perm_unlink
-access_tracking_config_user,tracking.config.user,model_tracking_config,group_tracking_user,1,0,0,0
-access_tracking_config_manager,tracking.config.manager,model_tracking_config,group_tracking_manager,1,1,1,1
-access_tracking_device_user,tracking.device.user,model_tracking_device,group_tracking_user,1,0,0,0
-access_tracking_device_manager,tracking.device.manager,model_tracking_device,group_tracking_manager,1,1,1,1
-access_tracking_location_user,tracking.location.user,model_tracking_location,group_tracking_user,1,0,0,0
-access_tracking_location_manager,tracking.location.manager,model_tracking_location,group_tracking_manager,1,1,1,1
-access_tracking_api_user,tracking.api.user,model_tracking_api,group_tracking_user,1,1,1,1
-access_tracking_api_manager,tracking.api.manager,model_tracking_api,group_tracking_manager,1,1,1,1
+access_tracking_config_user,tracking.config.user,model_tracking_config,base.group_user,1,1,1,1
+access_tracking_device_user,tracking.device.user,model_tracking_device,base.group_user,1,1,1,1
