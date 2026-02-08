@@ -1,1 +1,23 @@
-<odoo></odoo>
+
+<odoo>
+    <record id="view_tracking_position_map" model="ir.ui.view">
+        <field name="name">tracking.position.map</field>
+        <field name="model">tracking.position</field>
+        <field name="arch" type="xml">
+            <map string="Live Vehicle Map" lat="latitude" lng="longitude">
+                <field name="vehicle_id"/>
+                <field name="speed"/>
+                <field name="updated_at"/>
+            </map>
+        </field>
+    </record>
+
+    <record id="action_tracking_map" model="ir.actions.act_window">
+        <field name="name">Live Vehicle Map</field>
+        <field name="res_model">tracking.position</field>
+        <field name="view_mode">map</field>
+    </record>
+
+    <menuitem id="menu_tracking_root" name="Tracking" parent="fleet.menu_fleet_root"/>
+    <menuitem id="menu_tracking_map" name="Live Map" parent="menu_tracking_root" action="action_tracking_map"/>
+</odoo>
