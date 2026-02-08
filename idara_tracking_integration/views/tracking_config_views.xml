@@ -37,6 +37,9 @@
                         </group>
                     </group>
                     <group>
+                        <group string="Google Maps">
+                            <field name="google_maps_api_key" password="True" placeholder="Enter your Google Maps API key"/>
+                        </group>
                         <group>
                             <field name="active"/>
                             <field name="company_id" groups="base.group_multi_company"/>

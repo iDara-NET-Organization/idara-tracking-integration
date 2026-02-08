@@ -13,6 +13,7 @@ class TrackingConfig(models.Model):
     api_url = fields.Char(string='API URL', default='https://api.tracking.example.com')
     username = fields.Char(string='Username')
     password = fields.Char(string='Password')
+    google_maps_api_key = fields.Char(string='Google Maps API Key', help='Your Google Maps JavaScript API key for map visualization')
     active = fields.Boolean(string='Active', default=True)
     device_ids = fields.One2many('tracking.device', 'config_id', string='Devices')
     device_count = fields.Integer(string='Device Count', compute='_compute_device_count')

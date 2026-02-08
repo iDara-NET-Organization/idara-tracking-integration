@@ -30,8 +30,18 @@ GPS Tracking and Fleet Management Module for Odoo
    - API URL (e.g., https://api.tracking.example.com)
    - API Key
    - Username/Password (if required)
+   - **Google Maps API Key** (required for map visualization)
 4. Click "Test Connection" to verify
 5. Click "Fetch Devices from API" to import all devices
+
+### Getting a Google Maps API Key
+
+1. Go to [Google Cloud Console](https://console.cloud.google.com/)
+2. Create a new project or select existing one
+3. Enable **Maps JavaScript API**
+4. Go to Credentials → Create Credentials → API Key
+5. Copy the API key and paste it in the configuration
+6. (Optional) Restrict the API key to your domain for security
 
 ## API Integration
 
@@ -60,15 +70,29 @@ You can customize the API integration in `models/tracking_config.py` in the `fet
 
 ## Map View
 
-To view devices on an interactive map:
-1. Open `static/src/map_template.html` in a web browser
-2. Or integrate it into your Odoo dashboard
-3. The map uses OpenStreetMap/Leaflet.js for visualization
+The module includes two map options:
 
-For production use, you can:
-- Embed the map in a custom Odoo view
-- Connect it to your API endpoint for live updates
-- Add real-time WebSocket updates
+### Option 1: Google Maps (Recommended)
+1. Configure Google Maps API key in Configuration
+2. Open `/idara_tracking_integration/static/src/google_map.html`
+3. Replace `YOUR_GOOGLE_MAPS_API_KEY_HERE` with your actual API key
+4. Open in browser to see live tracking with Google Maps
+
+### Option 2: OpenStreetMap (Free)
+1. Open `/idara_tracking_integration/static/src/map_template.html`
+2. No API key required
+3. Uses Leaflet.js with OpenStreetMap tiles
+
+Both maps show:
+- Device locations with colored markers (green=online, blue=moving, yellow=idle, red=offline)
+- Click markers for detailed info (speed, driver, vehicle, address)
+- Auto-refresh every 30 seconds
+- Responsive design
+
+For production:
+- Embed maps in Odoo views using iframes
+- Connect to real-time WebSocket for live updates
+- Add geofencing and route history features
 
 ## Usage
 
