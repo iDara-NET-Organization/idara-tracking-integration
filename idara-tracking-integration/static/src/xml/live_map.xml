@@ -1,0 +1,6 @@
+
+<templates>
+    <t t-name="IdaraLiveMap">
+        <div id="idara_live_map" style="width:100%;height:100vh;"></div>
+    </t>
+</templates>

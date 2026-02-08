@@ -1,0 +1,12 @@
+
+<odoo>
+    <record id="action_idara_live_map" model="ir.actions.client">
+        <field name="name">Live Tracking Map</field>
+        <field name="tag">idara_tracking_live_map</field>
+    </record>
+
+    <menuitem id="menu_idara_live_map"
+              name="Live Tracking Map"
+              parent="fleet.fleet_menu_root"
+              action="action_idara_live_map"/>
+</odoo>
