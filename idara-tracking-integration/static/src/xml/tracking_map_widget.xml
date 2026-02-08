@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<templates xml:space="preserve">
+    <t t-name="idara_tracking_integration.TrackingMapWidget" owl="1">
+        <div class="o_tracking_map_widget">
+            <div t-ref="map" class="o_tracking_map" style="height: 600px; width: 100%;"></div>
+        </div>
+    </t>
+</templates>

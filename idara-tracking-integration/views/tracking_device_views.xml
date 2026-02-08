@@ -1,1 +1,219 @@
-<odoo></odoo>
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <data>
+
+        <!-- Device Form View -->
+        <record id="view_tracking_device_form" model="ir.ui.view">
+            <field name="name">tracking.device.form</field>
+            <field name="model">tracking.device</field>
+            <field name="arch" type="xml">
+                <form string="Tracking Device">
+                    <header>
+                        <button name="action_sync_device" string="Sync Now" type="object" class="btn-primary"/>
+                        <field name="status" widget="statusbar" statusbar_visible="online,moving,stopped"/>
+                    </header>
+                    <sheet>
+                        <div class="oe_button_box" name="button_box">
+                            <button name="action_view_locations" type="object" class="oe_stat_button" icon="fa-map-marker">
+                                <field name="location_count" widget="statinfo" string="Locations"/>
+                            </button>
+                            <button name="action_view_on_map" type="object" class="oe_stat_button" icon="fa-globe">
+                                <div class="o_field_widget o_stat_info">
+                                    <span class="o_stat_text">View on Map</span>
+                                </div>
+                            </button>
+                        </div>
+                        
+                        <widget name="web_ribbon" title="Offline" bg_color="bg-danger" attrs="{'invisible': [('status', '!=', 'offline')]}"/>
+                        <widget name="web_ribbon" title="Moving" bg_color="bg-success" attrs="{'invisible': [('status', '!=', 'moving')]}"/>
+                        
+                        <group>
+                            <group name="device_info" string="Device Information">
+                                <field name="name"/>
+                                <field name="device_id" readonly="1"/>
+                                <field name="imei"/>
+                                <field name="device_model"/>
+                                <field name="config_id"/>
+                                <field name="active"/>
+                            </group>
+                            <group name="vehicle_info" string="Vehicle Information">
+                                <field name="vehicle_name"/>
+                                <field name="plate_number"/>
+                                <field name="driver_name"/>
+                            </group>
+                        </group>
+                        
+                        <group string="Current Status">
+                            <group>
+                                <field name="last_latitude"/>
+                                <field name="last_longitude"/>
+                                <field name="last_speed"/>
+                                <field name="last_altitude"/>
+                            </group>
+                            <group>
+                                <field name="last_heading"/>
+                                <field name="last_update"/>
+                                <field name="last_position_time"/>
+                                <field name="ignition_status"/>
+                                <field name="power_status"/>
+                            </group>
+                        </group>
+                        
+                        <group string="Alerts" attrs="{'invisible': [('has_alert', '=', False)]}">
+                            <field name="has_alert" invisible="1"/>
+                            <field name="alert_type"/>
+                        </group>
+                        
+                        <notebook>
+                            <page string="Live Map" name="map">
+                                <field name="id" invisible="1"/>
+                                <div class="o_tracking_map_container">
+                                    <div id="tracking_map" style="height: 500px; width: 100%;"></div>
+                                </div>
+                            </page>
+                            <page string="Location History" name="locations">
+                                <field name="location_ids" mode="tree">
+                                    <tree limit="50">
+                                        <field name="position_time"/>
+                                        <field name="latitude"/>
+                                        <field name="longitude"/>
+                                        <field name="speed"/>
+                                        <field name="altitude"/>
+                                        <field name="movement_status"/>
+                                        <field name="ignition"/>
+                                    </tree>
+                                </field>
+                            </page>
+                            <page string="Statistics" name="statistics">
+                                <group>
+                                    <field name="total_distance"/>
+                                    <field name="total_running_time"/>
+                                </group>
+                            </page>
+                        </notebook>
+                    </sheet>
+                </form>
+            </field>
+        </record>
+
+        <!-- Device Tree View -->
+        <record id="view_tracking_device_tree" model="ir.ui.view">
+            <field name="name">tracking.device.tree</field>
+            <field name="model">tracking.device</field>
+            <field name="arch" type="xml">
+                <tree string="Tracking Devices" decoration-success="status=='moving'" decoration-muted="status=='offline'" decoration-info="status=='stopped'">
+                    <field name="name"/>
+                    <field name="vehicle_name"/>
+                    <field name="plate_number"/>
+                    <field name="status"/>
+                    <field name="last_speed"/>
+                    <field name="last_update"/>
+                    <field name="ignition_status"/>
+                    <field name="active"/>
+                </tree>
+            </field>
+        </record>
+
+        <!-- Device Kanban View -->
+        <record id="view_tracking_device_kanban" model="ir.ui.view">
+            <field name="name">tracking.device.kanban</field>
+            <field name="model">tracking.device</field>
+            <field name="arch" type="xml">
+                <kanban class="o_kanban_mobile">
+                    <field name="name"/>
+                    <field name="vehicle_name"/>
+                    <field name="status"/>
+                    <field name="last_speed"/>
+                    <field name="last_update"/>
+                    <templates>
+                        <t t-name="kanban-box">
+                            <div class="oe_kanban_global_click">
+                                <div class="o_kanban_record_top">
+                                    <div class="o_kanban_record_headings">
+                                        <strong class="o_kanban_record_title"><field name="name"/></strong>
+                                        <span class="o_kanban_record_subtitle"><field name="vehicle_name"/></span>
+                                    </div>
+                                    <span class="float-end badge badge-pill" t-attf-class="badge-#{record.status.raw_value == 'moving' ? 'success' : record.status.raw_value == 'offline' ? 'secondary' : 'info'}">
+                                        <field name="status"/>
+                                    </span>
+                                </div>
+                                <div class="o_kanban_record_bottom">
+                                    <div class="oe_kanban_bottom_left">
+                                        <span><i class="fa fa-tachometer"/> <field name="last_speed"/> km/h</span>
+                                    </div>
+                                    <div class="oe_kanban_bottom_right">
+                                        <field name="last_update" widget="date"/>
+                                    </div>
+                                </div>
+                            </div>
+                        </t>
+                    </templates>
+                </kanban>
+            </field>
+        </record>
+
+        <!-- Device Map View -->
+        <record id="view_tracking_device_map" model="ir.ui.view">
+            <field name="name">tracking.device.map</field>
+            <field name="model">tracking.device</field>
+            <field name="arch" type="xml">
+                <map string="Device Map" res_partner="id">
+                    <field name="name"/>
+                    <field name="last_latitude"/>
+                    <field name="last_longitude"/>
+                </map>
+            </field>
+        </record>
+
+        <!-- Device Search View -->
+        <record id="view_tracking_device_search" model="ir.ui.view">
+            <field name="name">tracking.device.search</field>
+            <field name="model">tracking.device</field>
+            <field name="arch" type="xml">
+                <search string="Search Devices">
+                    <field name="name"/>
+                    <field name="vehicle_name"/>
+                    <field name="plate_number"/>
+                    <field name="imei"/>
+                    <filter string="Online" name="online" domain="[('status', 'in', ['online', 'moving', 'stopped'])]"/>
+                    <filter string="Moving" name="moving" domain="[('status', '=', 'moving')]"/>
+                    <filter string="Stopped" name="stopped" domain="[('status', '=', 'stopped')]"/>
+                    <filter string="Offline" name="offline" domain="[('status', '=', 'offline')]"/>
+                    <separator/>
+                    <filter string="Active" name="active" domain="[('active', '=', True)]"/>
+                    <filter string="Inactive" name="inactive" domain="[('active', '=', False)]"/>
+                    <group expand="0" string="Group By">
+                        <filter string="Status" name="group_status" context="{'group_by': 'status'}"/>
+                        <filter string="Configuration" name="group_config" context="{'group_by': 'config_id'}"/>
+                    </group>
+                </search>
+            </field>
+        </record>
+
+        <!-- Device Action -->
+        <record id="action_tracking_device" model="ir.actions.act_window">
+            <field name="name">Devices</field>
+            <field name="res_model">tracking.device</field>
+            <field name="view_mode">kanban,tree,form</field>
+            <field name="context">{'search_default_active': 1}</field>
+            <field name="help" type="html">
+                <p class="o_view_nocontent_smiling_face">
+                    No devices found
+                </p>
+                <p>
+                    Sync devices from your tracking server to start monitoring.
+                </p>
+            </field>
+        </record>
+
+        <!-- Live Map Action -->
+        <record id="action_tracking_live_map" model="ir.actions.act_window">
+            <field name="name">Live Map</field>
+            <field name="res_model">tracking.device</field>
+            <field name="view_mode">kanban,tree,form</field>
+            <field name="context">{'search_default_online': 1}</field>
+            <field name="domain">[('status', 'in', ['online', 'moving', 'stopped'])]</field>
+        </record>
+
+    </data>
+</odoo>
