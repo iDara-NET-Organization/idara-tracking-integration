@@ -7,7 +7,7 @@
         <field name="arch" type="xml">
             <form string="Tracking Device">
                 <header>
-                    <button name="refresh_location" string="Refresh Location" type="object" class="btn-primary"/>
+                    <button name="refresh_location" string="Refresh Location" type="object" class="btn-primary" icon="fa-refresh" title="Refresh Location"/>
                     <field name="status" widget="statusbar" statusbar_visible="online,moving,idle,offline"/>
                 </header>
                 <sheet>
@@ -92,7 +92,7 @@
                             </div>
                             <div class="o_kanban_record_bottom">
                                 <div class="oe_kanban_bottom_left">
-                                    <span><i class="fa fa-tachometer"/> <field name="speed"/> km/h</span>
+                                    <span title="Speed"><i class="fa fa-tachometer" aria-label="Speed"/> <field name="speed"/> km/h</span>
                                 </div>
                             </div>
                         </div>

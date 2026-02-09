@@ -15,7 +15,7 @@
                     </div>
                     
                     <div class="alert alert-info" role="alert">
-                        <h4><i class="fa fa-info-circle"/> How to View Map</h4>
+                        <h4><i class="fa fa-info-circle" title="Info"/> How to View Map</h4>
                         <p>Since Odoo doesn't support embedded maps directly, you have two options:</p>
                         <ol>
                             <li><strong>External Map (Recommended):</strong> Open the map files in your browser:
@@ -42,7 +42,7 @@
                                     icon="fa-cog"/>
                         </group>
                         <group string="Map Access">
-                            <div class="alert alert-success">
+                            <div class="alert alert-success" role="status">
                                 <p><strong>Direct Map Links:</strong></p>
                                 <p>Copy these URLs and open in a new browser tab:</p>
                                 <p style="font-family: monospace; background: #f0f0f0; padding: 10px; border-radius: 5px;">
@@ -124,7 +124,7 @@
                     
                     <div class="alert alert-info mt-4" role="alert">
                         <h4 class="alert-heading">
-                            <i class="fa fa-map-marker"/> Live Tracking Map
+                            <i class="fa fa-map-marker" title="Map"/> Live Tracking Map
                         </h4>
                         <p>To view all devices on a live map, you can integrate with:</p>
                         <ul>
