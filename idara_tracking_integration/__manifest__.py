@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 {
     'name': 'Idara Tracking Integration',
-    'version': '2.4.2',
+    'version': '2.5.0',
     'category': 'Operations',
     'summary': 'GPS Tracking with Multi-Map Support & Timezone (Odoo 15-19)',
     'description': """
