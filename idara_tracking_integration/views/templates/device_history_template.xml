@@ -1,209 +1,170 @@
 <?xml version="1.0" encoding="utf-8"?>
 <odoo>
     <template id="device_history_template" name="Device History Viewer">
-        <t t-call="web.html_container">
-            <t t-set="head_website">
-                <script type="text/javascript" t-att-src="'https://maps.googleapis.com/maps/api/js?key=' + google_maps_key + '&amp;libraries=geometry'"></script>
-                <style>
-                    body {
-                        margin: 0;
-                        padding: 0;
-                        font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-                        background: #f5f5f5;
-                    }
-                    
-                    .history-container {
-                        display: flex;
-                        flex-direction: column;
-                        height: 100vh;
-                    }
-                    
-                    .history-header {
-                        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-                        color: white;
-                        padding: 20px;
-                        box-shadow: 0 2px 10px rgba(0,0,0,0.1);
-                    }
-                    
-                    .history-title {
-                        font-size: 24px;
-                        font-weight: 600;
-                        margin: 0 0 15px 0;
-                        display: flex;
-                        align-items: center;
-                    }
-                    
-                    .history-title i {
-                        margin-right: 10px;
-                        font-size: 28px;
-                    }
-                    
-                    .controls-panel {
-                        display: flex;
-                        gap: 15px;
-                        flex-wrap: wrap;
-                        align-items: flex-end;
-                    }
-                    
-                    .control-group {
-                        display: flex;
-                        flex-direction: column;
-                        gap: 5px;
-                    }
-                    
-                    .control-group label {
-                        font-size: 12px;
-                        font-weight: 500;
-                        opacity: 0.9;
-                    }
-                    
-                    .control-group select,
-                    .control-group input {
-                        padding: 8px 12px;
-                        border: none;
-                        border-radius: 5px;
-                        font-size: 14px;
-                        background: white;
-                        color: #333;
-                        min-width: 150px;
-                    }
-                    
-                    .control-group input[type="datetime-local"] {
-                        min-width: 200px;
-                    }
-                    
-                    .btn-load {
-                        padding: 8px 20px;
-                        background: #4CAF50;
-                        color: white;
-                        border: none;
-                        border-radius: 5px;
-                        cursor: pointer;
-                        font-size: 14px;
-                        font-weight: 600;
-                        transition: all 0.3s;
-                    }
-                    
-                    .btn-load:hover {
-                        background: #45a049;
-                        transform: translateY(-1px);
-                        box-shadow: 0 4px 8px rgba(0,0,0,0.2);
-                    }
-                    
-                    .btn-load:disabled {
-                        background: #ccc;
-                        cursor: not-allowed;
-                        transform: none;
-                    }
-                    
-                    .map-container {
-                        flex: 1;
-                        position: relative;
-                    }
-                    
-                    #history-map {
-                        width: 100%;
-                        height: 100%;
-                    }
-                    
-                    .info-panel {
-                        position: absolute;
-                        top: 10px;
-                        right: 10px;
-                        background: white;
-                        padding: 15px;
-                        border-radius: 8px;
-                        box-shadow: 0 2px 10px rgba(0,0,0,0.2);
-                        min-width: 250px;
-                        max-width: 350px;
-                        z-index: 100;
-                    }
-                    
-                    .info-panel h3 {
-                        margin: 0 0 10px 0;
-                        font-size: 16px;
-                        color: #667eea;
-                        border-bottom: 2px solid #667eea;
-                        padding-bottom: 5px;
-                    }
-                    
-                    .info-item {
-                        display: flex;
-                        justify-content: space-between;
-                        padding: 5px 0;
-                        font-size: 13px;
-                        border-bottom: 1px solid #eee;
-                    }
-                    
-                    .info-item:last-child {
-                        border-bottom: none;
-                    }
-                    
-                    .info-label {
-                        font-weight: 600;
-                        color: #666;
-                    }
-                    
-                    .info-value {
-                        color: #333;
-                        font-weight: 500;
-                    }
-                    
-                    .loading-overlay {
-                        position: absolute;
-                        top: 0;
-                        left: 0;
-                        right: 0;
-                        bottom: 0;
-                        background: rgba(255,255,255,0.9);
-                        display: none;
-                        align-items: center;
-                        justify-content: center;
-                        z-index: 1000;
-                    }
-                    
-                    .loading-overlay.active {
-                        display: flex;
-                    }
-                    
-                    .spinner {
-                        border: 4px solid #f3f3f3;
-                        border-top: 4px solid #667eea;
-                        border-radius: 50%;
-                        width: 40px;
-                        height: 40px;
-                        animation: spin 1s linear infinite;
-                    }
-                    
-                    @keyframes spin {
-                        0% { transform: rotate(0deg); }
-                        100% { transform: rotate(360deg); }
-                    }
-                    
-                    .error-message {
-                        background: #f44336;
-                        color: white;
-                        padding: 10px 15px;
-                        border-radius: 5px;
-                        margin: 10px;
-                        display: none;
-                    }
-                    
-                    .error-message.active {
-                        display: block;
-                    }
-                </style>
-            </t>
-            
-            <t t-set="head">
-                <t t-raw="head_website"/>
-            </t>
-            
+        <html>
+        <head>
+            <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+            <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+            <style>
+                body {
+                    margin: 0;
+                    padding: 0;
+                    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+                    background: #f5f5f5;
+                }
+                
+                .history-container {
+                    display: flex;
+                    flex-direction: column;
+                    height: 100vh;
+                }
+                
+                .history-header {
+                    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+                    color: white;
+                    padding: 20px;
+                    box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+                }
+                
+                .history-title {
+                    font-size: 24px;
+                    font-weight: 600;
+                    margin: 0 0 15px 0;
+                    display: flex;
+                    align-items: center;
+                }
+                
+                .controls-panel {
+                    display: flex;
+                    gap: 15px;
+                    flex-wrap: wrap;
+                    align-items: flex-end;
+                }
+                
+                .control-group {
+                    display: flex;
+                    flex-direction: column;
+                    gap: 5px;
+                }
+                
+                .control-group label {
+                    font-size: 12px;
+                    font-weight: 500;
+                    opacity: 0.9;
+                }
+                
+                .control-group select,
+                .control-group input {
+                    padding: 8px 12px;
+                    border: none;
+                    border-radius: 5px;
+                    font-size: 14px;
+                    background: white;
+                    color: #333;
+                    min-width: 150px;
+                }
+                
+                .btn-load {
+                    padding: 8px 20px;
+                    background: #4CAF50;
+                    color: white;
+                    border: none;
+                    border-radius: 5px;
+                    cursor: pointer;
+                    font-size: 14px;
+                    font-weight: 600;
+                    transition: all 0.3s;
+                }
+                
+                .btn-load:hover {
+                    background: #45a049;
+                }
+                
+                .map-container {
+                    flex: 1;
+                    position: relative;
+                }
+                
+                #history-map {
+                    width: 100%;
+                    height: 100%;
+                }
+                
+                .info-panel {
+                    position: absolute;
+                    top: 10px;
+                    right: 10px;
+                    background: white;
+                    padding: 15px;
+                    border-radius: 8px;
+                    box-shadow: 0 2px 10px rgba(0,0,0,0.2);
+                    min-width: 250px;
+                    z-index: 1000;
+                }
+                
+                .info-panel h3 {
+                    margin: 0 0 10px 0;
+                    font-size: 16px;
+                    color: #667eea;
+                }
+                
+                .info-item {
+                    display: flex;
+                    justify-content: space-between;
+                    padding: 5px 0;
+                    font-size: 13px;
+                }
+                
+                .error-message {
+                    background: #f44336;
+                    color: white;
+                    padding: 10px 15px;
+                    border-radius: 5px;
+                    margin: 10px;
+                    display: none;
+                }
+                
+                .error-message.active {
+                    display: block;
+                }
+                
+                .loading-overlay {
+                    position: absolute;
+                    top: 0;
+                    left: 0;
+                    right: 0;
+                    bottom: 0;
+                    background: rgba(255,255,255,0.9);
+                    display: none;
+                    align-items: center;
+                    justify-content: center;
+                    z-index: 2000;
+                }
+                
+                .loading-overlay.active {
+                    display: flex;
+                }
+                
+                .spinner {
+                    border: 4px solid #f3f3f3;
+                    border-top: 4px solid #667eea;
+                    border-radius: 50%;
+                    width: 40px;
+                    height: 40px;
+                    animation: spin 1s linear infinite;
+                }
+                
+                @keyframes spin {
+                    0% { transform: rotate(0deg); }
+                    100% { transform: rotate(360deg); }
+                }
+            </style>
+        </head>
+        <body>
             <div class="history-container">
                 <div class="history-header">
                     <h1 class="history-title">
-                        <i class="fa fa-route"></i>
-                        Device Route History
+                        🗺️ Device Route History
                     </h1>
                     
                     <div class="controls-panel">
@@ -212,10 +173,8 @@
                             <select id="device-select">
                                 <option value="">Select Device...</option>
                                 <t t-foreach="devices" t-as="device">
-                                    <option t-att-value="device.id" 
-                                            t-att-selected="'selected' if selected_device and device.id == selected_device.id else None"
-                                            t-att-data-device-id="device.device_id">
-                                        <t t-esc="device.name"/>
+                                    <option t-att-value="device.id">
+                                        <t t-esc="device.name or device.device_id"/>
                                     </option>
                                 </t>
                             </select>
@@ -232,8 +191,8 @@
                         </div>
                         
                         <div class="control-group">
-                            <button class="btn-load" id="load-history" onclick="loadHistory()">
-                                <i class="fa fa-search"></i> Load Route
+                            <button class="btn-load" onclick="loadHistory()">
+                                🔍 Load Route
                             </button>
                         </div>
                     </div>
@@ -247,24 +206,24 @@
                     <div class="info-panel" id="info-panel" style="display: none;">
                         <h3>Route Summary</h3>
                         <div class="info-item">
-                            <span class="info-label">Total Distance:</span>
-                            <span class="info-value" id="total-distance">-</span>
+                            <span>Total Distance:</span>
+                            <span id="total-distance">-</span>
                         </div>
                         <div class="info-item">
-                            <span class="info-label">Duration:</span>
-                            <span class="info-value" id="duration">-</span>
+                            <span>Duration:</span>
+                            <span id="duration">-</span>
                         </div>
                         <div class="info-item">
-                            <span class="info-label">Top Speed:</span>
-                            <span class="info-value" id="top-speed">-</span>
+                            <span>Top Speed:</span>
+                            <span id="top-speed">-</span>
                         </div>
                         <div class="info-item">
-                            <span class="info-label">Stops:</span>
-                            <span class="info-value" id="stops-count">-</span>
+                            <span>Stops:</span>
+                            <span id="stops-count">-</span>
                         </div>
                         <div class="info-item">
-                            <span class="info-label">Points:</span>
-                            <span class="info-value" id="points-count">-</span>
+                            <span>Points:</span>
+                            <span id="points-count">-</span>
                         </div>
                     </div>
                     
@@ -281,18 +240,18 @@
                 let markers = [];
                 
                 function initMap() {
-                    map = new google.maps.Map(document.getElementById('history-map'), {
-                        zoom: 6,
-                        center: { lat: 24.7136, lng: 46.6753 },
-                        mapTypeId: 'roadmap',
-                        styles: [
-                            {
-                                featureType: 'poi',
-                                elementType: 'labels',
-                                stylers: [{ visibility: 'off' }]
-                            }
-                        ]
-                    });
+                    if (typeof L === 'undefined') {
+                        console.error('Leaflet not loaded!');
+                        showError('Map library not loaded. Please refresh the page.');
+                        return;
+                    }
+                    
+                    map = L.map('history-map').setView([24.7136, 46.6753], 6);
+                    
+                    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                        attribution: '© OpenStreetMap',
+                        maxZoom: 19
+                    }).addTo(map);
                 }
                 
                 function setDefaultDateTimes() {
@@ -333,10 +292,10 @@
                 
                 function clearMap() {
                     if (routeLine) {
-                        routeLine.setMap(null);
+                        map.removeLayer(routeLine);
                     }
                     
-                    markers.forEach(marker => marker.setMap(null));
+                    markers.forEach(marker => map.removeLayer(marker));
                     markers = [];
                 }
                 
@@ -361,29 +320,46 @@
                     showLoading(true);
                     clearMap();
                     
-                    odoo.define('device_history_loader', function(require) {
-                        var ajax = require('web.ajax');
+                    fetch('/idara_tracking/get_device_history', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                        },
+                        body: JSON.stringify({
+                            jsonrpc: '2.0',
+                            method: 'call',
+                            params: {
+                                device_id: deviceId,
+                                from_datetime: fromDT,
+                                to_datetime: toDT
+                            },
+                            id: new Date().getTime()
+                        })
+                    })
+                    .then(response => response.json())
+                    .then(data => {
+                        showLoading(false);
                         
-                        ajax.jsonRpc('/idara_tracking/get_device_history', 'call', {
-                            device_id: deviceId,
-                            from_datetime: fromDT,
-                            to_datetime: toDT
-                        }).then(function(result) {
-                            showLoading(false);
-                            
-                            if (result.status === 'error') {
-                                showError('Error: ' + result.message);
-                                return;
-                            }
-                            
-                            if (result.status === 'success') {
-                                displayRoute(result.data);
-                            }
-                        }).catch(function(error) {
-                            showLoading(false);
-                            showError('Failed to load history: ' + error.message);
-                            console.error('Error:', error);
-                        });
+                        if (!data.result) {
+                            showError('No response from server');
+                            return;
+                        }
+                        
+                        const result = data.result;
+                        
+                        if (result.status === 'error') {
+                            showError('Error: ' + result.message);
+                            return;
+                        }
+                        
+                        if (result.status === 'success') {
+                            displayRoute(result.data);
+                        }
+                    })
+                    .catch(error => {
+                        showLoading(false);
+                        showError('Failed to load history: ' + error.message);
+                        console.error('Error:', error);
                     });
                 }
                 
@@ -401,13 +377,10 @@
                         if (segment.items && Array.isArray(segment.items)) {
                             segment.items.forEach(point => {
                                 if (point.lat && point.lng) {
-                                    routePoints.push({
-                                        lat: parseFloat(point.lat),
-                                        lng: parseFloat(point.lng),
-                                        speed: parseFloat(point.speed) || 0,
-                                        time: point.time,
-                                        status: segment.status
-                                    });
+                                    routePoints.push([
+                                        parseFloat(point.lat),
+                                        parseFloat(point.lng)
+                                    ]);
                                     totalPoints++;
                                 }
                             });
@@ -423,59 +396,55 @@
                         return;
                     }
                     
-                    const path = routePoints.map(p => ({ lat: p.lat, lng: p.lng }));
+                    routeLine = L.polyline(routePoints, {
+                        color: '#4285F4',
+                        weight: 4,
+                        opacity: 0.8
+                    }).addTo(map);
                     
-                    routeLine = new google.maps.Polyline({
-                        path: path,
-                        geodesic: true,
-                        strokeColor: '#4285F4',
-                        strokeOpacity: 0.8,
-                        strokeWeight: 4,
-                        map: map
-                    });
-                    
-                    const startPoint = routePoints[0];
-                    const startMarker = new google.maps.Marker({
-                        position: { lat: startPoint.lat, lng: startPoint.lng },
-                        map: map,
-                        icon: {
-                            url: 'https://maps.google.com/mapfiles/ms/icons/green-dot.png'
-                        },
-                        title: 'Start: ' + startPoint.time
-                    });
+                    const startMarker = L.marker(routePoints[0], {
+                        icon: L.icon({
+                            iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-green.png',
+                            shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-shadow.png',
+                            iconSize: [25, 41],
+                            iconAnchor: [12, 41],
+                            popupAnchor: [1, -34],
+                            shadowSize: [41, 41]
+                        })
+                    }).addTo(map);
+                    startMarker.bindPopup('<strong>Start</strong>');
                     markers.push(startMarker);
                     
-                    const endPoint = routePoints[routePoints.length - 1];
-                    const endMarker = new google.maps.Marker({
-                        position: { lat: endPoint.lat, lng: endPoint.lng },
-                        map: map,
-                        icon: {
-                            url: 'https://maps.google.com/mapfiles/ms/icons/red-dot.png'
-                        },
-                        title: 'End: ' + endPoint.time
-                    });
+                    const endMarker = L.marker(routePoints[routePoints.length - 1], {
+                        icon: L.icon({
+                            iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-red.png',
+                            shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-shadow.png',
+                            iconSize: [25, 41],
+                            iconAnchor: [12, 41],
+                            popupAnchor: [1, -34],
+                            shadowSize: [41, 41]
+                        })
+                    }).addTo(map);
+                    endMarker.bindPopup('<strong>End</strong>');
                     markers.push(endMarker);
                     
-                    const bounds = new google.maps.LatLngBounds();
-                    routePoints.forEach(point => {
-                        bounds.extend({ lat: point.lat, lng: point.lng });
-                    });
-                    map.fitBounds(bounds);
+                    map.fitBounds(routeLine.getBounds(), { padding: [50, 50] });
                     
                     document.getElementById('total-distance').textContent = historyData.distance_sum || '-';
                     document.getElementById('duration').textContent = historyData.move_duration || '-';
-                    document.getElementById('top-speed').textContent = historyData.top_speed || '-';
+                    document.getElementById('top-speed').textContent = (historyData.top_speed || '0') + ' km/h';
                     document.getElementById('stops-count').textContent = stopsCount;
                     document.getElementById('points-count').textContent = totalPoints;
                     document.getElementById('info-panel').style.display = 'block';
                 }
                 
-                document.addEventListener('DOMContentLoaded', function() {
+                window.addEventListener('load', function() {
                     initMap();
                     setDefaultDateTimes();
                 });
             //]]>
             </script>
-        </t>
+        </body>
+        </html>
     </template>
 </odoo>

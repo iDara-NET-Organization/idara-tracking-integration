@@ -15,6 +15,11 @@ class TrackingConfig(models.Model):
     password = fields.Char(string='Password')
     google_maps_api_key = fields.Char(string='Google Maps API Key', help='Your Google Maps JavaScript API key for map visualization')
     auto_refresh_interval = fields.Integer(string='Map Auto Refresh (seconds)', default=30, help='How often to refresh device locations on the map (in seconds)')
+    timezone_offset = fields.Integer(string='Timezone Offset (hours)', default=3, help='Timezone offset from GMT (e.g., +3 for Saudi Arabia)')
+    map_provider = fields.Selection([
+        ('osm', 'OpenStreetMap (Free)'),
+        ('google', 'Google Maps (Requires API Key)')
+    ], string='Map Provider', default='osm', help='Choose map provider')
     active = fields.Boolean(string='Active', default=True)
     device_ids = fields.One2many('tracking.device', 'config_id', string='Devices')
     device_count = fields.Integer(string='Device Count', compute='_compute_device_count')
