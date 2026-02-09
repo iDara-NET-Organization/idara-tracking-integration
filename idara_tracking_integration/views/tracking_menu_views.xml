@@ -6,13 +6,6 @@
               web_icon="idara_tracking_integration,static/description/icon.png"
               sequence="10"/>
 
-    <!-- Dashboard Menu -->
-    <menuitem id="menu_tracking_dashboard"
-              name="Dashboard"
-              parent="menu_tracking_root"
-              sequence="5"
-              action="action_tracking_dashboard"/>
-
     <!-- Configuration Menu -->
     <menuitem id="menu_tracking_configuration"
               name="Configuration"
