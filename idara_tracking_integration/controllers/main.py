@@ -31,16 +31,20 @@ class TrackingMapController(http.Controller):
                     'last_update': str(device.last_update) if device.last_update else '',
                 })
         
-        # Get Google Maps API key from configuration
+        # Get configuration
         config = request.env['tracking.config'].sudo().search([('active', '=', True)], limit=1)
         google_maps_key = config.google_maps_api_key if config else ''
         refresh_interval = config.auto_refresh_interval if config else 30
+        map_provider = config.map_provider if config else 'osm'
+        timezone_offset = config.timezone_offset if config else 3
         
         return request.render('idara_tracking_integration.tracking_map_template', {
             'devices': json.dumps(devices_data),
             'google_maps_key': google_maps_key,
             'device_count': len(devices_data),
             'refresh_interval': refresh_interval * 1000,  # Convert to milliseconds
+            'map_provider': map_provider,
+            'timezone_offset': timezone_offset,
         })
     
     @http.route('/idara_tracking/devices/json', type='json', auth='user')
@@ -65,7 +69,8 @@ class TrackingMapController(http.Controller):
                     'last_update': str(device.last_update) if device.last_update else '',
                 })
         
-        return {'devices': devices_data, 'count': len(devices_data)}
+        # Return devices directly as array (not wrapped in object)
+        return devices_data
     
     @http.route('/idara_tracking/device_history', type='http', auth='user', website=False)
     def device_history_viewer(self, device_id=None, **kwargs):

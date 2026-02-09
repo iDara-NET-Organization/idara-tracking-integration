@@ -1,9 +1,9 @@
 # -*- coding: utf-8 -*-
 {
     'name': 'Idara Tracking Integration',
-    'version': '2.2.1',
+    'version': '2.3.0',
     'category': 'Operations',
-    'summary': 'GPS Tracking and Fleet Management Integration (Odoo 15-19)',
+    'summary': 'GPS Tracking with Multi-Map Support & Timezone (Odoo 15-19)',
     'description': """
         Idara Tracking Integration Module
         ==================================

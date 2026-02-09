@@ -38,11 +38,15 @@
                         </group>
                     </group>
                     <group>
-                        <group string="Google Maps">
-                            <field name="google_maps_api_key" password="True" placeholder="Enter your Google Maps API key"/>
+                        <group string="Map Settings">
+                            <field name="map_provider" widget="radio"/>
+                            <field name="google_maps_api_key" password="True" 
+                                   placeholder="Enter your Google Maps API key"
+                                   attrs="{'invisible': [('map_provider', '=', 'osm')], 'required': [('map_provider', '=', 'google')]}"/>
                             <field name="auto_refresh_interval"/>
+                            <field name="timezone_offset" help="Offset from GMT in hours (e.g., +3 for Saudi Arabia)"/>
                         </group>
-                        <group>
+                        <group string="Other Settings">
                             <field name="active"/>
                             <field name="company_id" groups="base.group_multi_company"/>
                         </group>
