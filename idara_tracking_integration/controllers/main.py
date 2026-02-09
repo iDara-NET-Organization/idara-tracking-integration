@@ -7,7 +7,7 @@ import json
 
 class TrackingMapController(http.Controller):
 
-    @http.route('/idara_tracking/map', type='http', auth='user', website=False)
+    @http.route('/idara_tracking/map', type='http', auth='user', website=true)
     def tracking_map(self, **kwargs):
         """Display interactive map with all devices"""
         # Fetch all active devices
