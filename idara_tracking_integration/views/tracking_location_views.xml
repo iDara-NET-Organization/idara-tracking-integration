@@ -1,23 +1,97 @@
 <?xml version="1.0" encoding="utf-8"?>
 <odoo>
-    <!-- Map View Action -->
-    <record id="action_tracking_map_view" model="ir.actions.act_window">
-        <field name="name">Device Map</field>
-        <field name="res_model">tracking.device</field>
-        <field name="view_mode">tree,form</field>
-        <field name="domain">[]</field>
-        <field name="context">{}</field>
-        <field name="help" type="html">
-            <p class="o_view_nocontent_smiling_face">
-                No devices to display on map
-            </p>
-            <p>
-                Fetch devices from your tracking API to see them on the map.
-            </p>
+    <!-- Custom Map View with Embedded Google Maps -->
+    <record id="view_tracking_map_form" model="ir.ui.view">
+        <field name="name">tracking.map.view.form</field>
+        <field name="model">tracking.config</field>
+        <field name="arch" type="xml">
+            <form string="Device Map" create="false" edit="false">
+                <sheet>
+                    <div class="text-center mb-3">
+                        <img src="/idara_tracking_integration/static/src/img/logo.png" 
+                             alt="Idara Tracking" 
+                             style="max-height: 70px; object-fit: contain;"/>
+                        <h1 class="mt-2">🗺️ Live Device Map</h1>
+                    </div>
+                    
+                    <div class="alert alert-info" role="alert">
+                        <h4><i class="fa fa-info-circle"/> How to View Map</h4>
+                        <p>Since Odoo doesn't support embedded maps directly, you have two options:</p>
+                        <ol>
+                            <li><strong>External Map (Recommended):</strong> Open the map files in your browser:
+                                <ul>
+                                    <li>Google Maps: <code>/idara_tracking_integration/static/src/google_map.html</code></li>
+                                    <li>OpenStreetMap: <code>/idara_tracking_integration/static/src/map_template.html</code></li>
+                                </ul>
+                            </li>
+                            <li><strong>Use Kanban View:</strong> Go to Devices menu and switch to Kanban view for visual device cards</li>
+                        </ol>
+                    </div>
+
+                    <group>
+                        <group string="Quick Actions">
+                            <button name="%(action_tracking_device)d" 
+                                    string="📱 View All Devices" 
+                                    type="action" 
+                                    class="btn-primary oe_highlight"
+                                    icon="fa-list"/>
+                            <button name="%(action_tracking_config)d" 
+                                    string="⚙️ Configuration" 
+                                    type="action" 
+                                    class="btn-secondary"
+                                    icon="fa-cog"/>
+                        </group>
+                        <group string="Map Access">
+                            <div class="alert alert-success">
+                                <p><strong>Direct Map Links:</strong></p>
+                                <p>Copy these URLs and open in a new browser tab:</p>
+                                <p style="font-family: monospace; background: #f0f0f0; padding: 10px; border-radius: 5px;">
+                                    https://your-odoo-url/idara_tracking_integration/static/src/google_map.html
+                                </p>
+                                <p style="font-family: monospace; background: #f0f0f0; padding: 10px; border-radius: 5px;">
+                                    https://your-odoo-url/idara_tracking_integration/static/src/map_template.html
+                                </p>
+                            </div>
+                        </group>
+                    </group>
+
+                    <separator string="Device List"/>
+                    <field name="device_ids" nolabel="1">
+                        <tree>
+                            <field name="name"/>
+                            <field name="device_id"/>
+                            <field name="status" decoration-success="status == 'online'" 
+                                   decoration-info="status == 'moving'" 
+                                   decoration-warning="status == 'idle'" 
+                                   decoration-danger="status == 'offline'"/>
+                            <field name="latitude"/>
+                            <field name="longitude"/>
+                            <field name="speed"/>
+                            <field name="driver_name"/>
+                        </tree>
+                    </field>
+                </sheet>
+            </form>
         </field>
     </record>
 
-    <!-- Custom Map Dashboard -->
+    <!-- Map View Action - Opens in browser -->
+    <record id="action_tracking_map_view" model="ir.actions.act_url">
+        <field name="name">Device Map</field>
+        <field name="url">/idara_tracking/map</field>
+        <field name="target">new</field>
+    </record>
+
+    <!-- Dashboard Action -->
+    <record id="action_tracking_dashboard" model="ir.actions.act_window">
+        <field name="name">Tracking Dashboard</field>
+        <field name="res_model">tracking.device</field>
+        <field name="view_mode">form</field>
+        <field name="view_id" ref="view_tracking_dashboard_form"/>
+        <field name="target">current</field>
+    </record>
+
+    <!-- Dashboard Form View -->
     <record id="view_tracking_dashboard_form" model="ir.ui.view">
         <field name="name">tracking.dashboard.form</field>
         <field name="model">tracking.device</field>
@@ -66,14 +140,5 @@
                 </sheet>
             </form>
         </field>
-    </record>
-
-    <!-- Dashboard Action -->
-    <record id="action_tracking_dashboard" model="ir.actions.act_window">
-        <field name="name">Tracking Dashboard</field>
-        <field name="res_model">tracking.device</field>
-        <field name="view_mode">form</field>
-        <field name="view_id" ref="view_tracking_dashboard_form"/>
-        <field name="target">current</field>
     </record>
 </odoo>

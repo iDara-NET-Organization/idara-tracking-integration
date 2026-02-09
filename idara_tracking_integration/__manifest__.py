@@ -23,6 +23,7 @@
     'depends': ['base', 'web'],
     'data': [
         'security/ir.model.access.csv',
+        'views/templates/tracking_map_template.xml',
         'views/tracking_device_views.xml',
         'views/tracking_config_views.xml',
         'views/tracking_location_views.xml',
