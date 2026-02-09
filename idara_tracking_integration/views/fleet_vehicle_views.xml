@@ -1,0 +1,79 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <!-- Inherit Fleet Vehicle Form View -->
+    <record id="fleet_vehicle_tracking_form" model="ir.ui.view">
+        <field name="name">fleet.vehicle.tracking.form</field>
+        <field name="model">fleet.vehicle</field>
+        <field name="inherit_id" ref="fleet.fleet_vehicle_view_form"/>
+        <field name="arch" type="xml">
+            <!-- Add tracking device after driver_id -->
+            <xpath expr="//field[@name='driver_id']" position="after">
+                <field name="tracking_device_id" options="{'no_create': True}"/>
+            </xpath>
+            
+            <!-- Add GPS Tracking notebook page -->
+            <xpath expr="//notebook" position="inside">
+                <page string="GPS Tracking" name="gps_tracking">
+                    <group>
+                        <group string="Device Information">
+                            <field name="tracking_device_id" options="{'no_create': True}"/>
+                            <field name="device_status" widget="badge" 
+                                   decoration-success="device_status == 'online'" 
+                                   decoration-info="device_status == 'moving'"
+                                   decoration-warning="device_status == 'idle'"
+                                   decoration-danger="device_status == 'offline'"/>
+                        </group>
+                        <group string="Quick Actions">
+                            <button name="action_view_on_map" 
+                                    string="View on Map" 
+                                    type="object" 
+                                    class="btn-primary"
+                                    icon="fa-map-marker"
+                                    attrs="{'invisible': [('tracking_device_id', '=', False)]}"/>
+                            <button name="action_refresh_location" 
+                                    string="Refresh Location" 
+                                    type="object" 
+                                    class="btn-secondary"
+                                    icon="fa-refresh"
+                                    attrs="{'invisible': [('tracking_device_id', '=', False)]}"/>
+                        </group>
+                    </group>
+                    <group>
+                        <group string="Current Location">
+                            <field name="current_location"/>
+                            <field name="device_latitude"/>
+                            <field name="device_longitude"/>
+                        </group>
+                        <group string="Status">
+                            <field name="last_known_speed"/>
+                            <field name="device_last_update"/>
+                        </group>
+                    </group>
+                    
+                    <div class="alert alert-info" role="alert" attrs="{'invisible': [('tracking_device_id', '!=', False)]}">
+                        <p><strong><i class="fa fa-info-circle"/> No Tracking Device</strong></p>
+                        <p>This vehicle doesn't have a GPS tracking device assigned yet.</p>
+                        <p>Go to <strong>Idara Tracking → Devices</strong> to assign a device to this vehicle.</p>
+                    </div>
+                </page>
+            </xpath>
+        </field>
+    </record>
+
+    <!-- Add tracking status to tree view -->
+    <record id="fleet_vehicle_tracking_tree" model="ir.ui.view">
+        <field name="name">fleet.vehicle.tracking.tree</field>
+        <field name="model">fleet.vehicle</field>
+        <field name="inherit_id" ref="fleet.fleet_vehicle_view_tree"/>
+        <field name="arch" type="xml">
+            <xpath expr="//field[@name='driver_id']" position="after">
+                <field name="device_status" optional="show" 
+                       decoration-success="device_status == 'online'" 
+                       decoration-info="device_status == 'moving'"
+                       decoration-warning="device_status == 'idle'"
+                       decoration-danger="device_status == 'offline'"/>
+                <field name="current_location" optional="hide"/>
+            </xpath>
+        </field>
+    </record>
+</odoo>
