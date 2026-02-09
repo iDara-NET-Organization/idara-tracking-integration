@@ -39,10 +39,10 @@ class TrackingMapController(http.Controller):
         timezone_offset = config.timezone_offset if config else 3
         
         return request.render('idara_tracking_integration.tracking_map_template', {
-            'devices': json.dumps(devices_data),
+            'devices_json': json.dumps(devices_data),
             'google_maps_key': google_maps_key,
             'device_count': len(devices_data),
-            'refresh_interval': refresh_interval * 1000,  # Convert to milliseconds
+            'refresh_interval': refresh_interval * 1000,
             'map_provider': map_provider,
             'timezone_offset': timezone_offset,
         })
