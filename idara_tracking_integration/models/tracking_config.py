@@ -52,54 +52,58 @@ class TrackingConfig(models.Model):
     def fetch_devices_from_api(self):
         """Fetch all devices from the tracking API"""
         self.ensure_one()
+        import requests
+        import json
         from datetime import datetime
         
-        # Option 1: Create demo devices (for testing)
-        # Remove this and uncomment Option 2 when you have a real API
+        try:
+            # Prepare API request
+            headers = {
+                'Authorization': f'Bearer {self.api_key}',
+                'Content-Type': 'application/json'
+            }
+            
+            # If no API key, try basic auth
+            if not self.api_key and self.username:
+                auth = (self.username, self.password)
+            else:
+                auth = None
+            
+            url = f'{self.api_url}/devices'
+            
+            # Make API request
+            response = requests.get(url, headers=headers, auth=auth, timeout=30)
+            
+            # Check if response is empty
+            if not response.text:
+                raise ValueError('API returned empty response')
+            
+            # Check response status
+            response.raise_for_status()
+            
+            # Parse JSON
+            try:
+                devices_data = response.json()
+            except json.JSONDecodeError:
+                raise ValueError(f'Invalid JSON response. Response text: {response.text[:200]}')
+            
+            # Process devices
+            return self._process_api_devices(devices_data)
+            
+        except requests.exceptions.ConnectionError:
+            return self._show_error('Connection Error', 'Could not connect to API. Check your API URL.')
+        except requests.exceptions.Timeout:
+            return self._show_error('Timeout Error', 'API request timed out after 30 seconds.')
+        except requests.exceptions.HTTPError as e:
+            return self._show_error('HTTP Error', f'API returned error: {e.response.status_code} - {e.response.text[:200]}')
+        except ValueError as e:
+            return self._show_error('Data Error', str(e))
+        except Exception as e:
+            return self._show_error('Unexpected Error', f'An error occurred: {str(e)}')
+    
+    def create_demo_devices(self):
+        """Create demo devices for testing - separate button"""
         return self._create_demo_devices()
-        
-        # Option 2: Real API integration (uncomment when ready)
-        # import requests
-        # import json
-        # 
-        # try:
-        #     # Prepare API request
-        #     headers = {
-        #         'Authorization': f'Bearer {self.api_key}',
-        #         'Content-Type': 'application/json'
-        #     }
-        #     
-        #     url = f'{self.api_url}/devices'
-        #     
-        #     # Make API request
-        #     response = requests.get(url, headers=headers, timeout=30)
-        #     
-        #     # Check if response is empty
-        #     if not response.text:
-        #         raise ValueError('API returned empty response')
-        #     
-        #     # Check response status
-        #     response.raise_for_status()
-        #     
-        #     # Parse JSON
-        #     try:
-        #         devices_data = response.json()
-        #     except json.JSONDecodeError:
-        #         raise ValueError(f'Invalid JSON response: {response.text[:200]}')
-        #     
-        #     # Process devices
-        #     return self._process_api_devices(devices_data)
-        #     
-        # except requests.exceptions.ConnectionError:
-        #     return self._show_error('Connection Error', 'Could not connect to API. Check your API URL.')
-        # except requests.exceptions.Timeout:
-        #     return self._show_error('Timeout Error', 'API request timed out after 30 seconds.')
-        # except requests.exceptions.HTTPError as e:
-        #     return self._show_error('HTTP Error', f'API returned error: {e.response.status_code}')
-        # except ValueError as e:
-        #     return self._show_error('Data Error', str(e))
-        # except Exception as e:
-        #     return self._show_error('Unexpected Error', f'An error occurred: {str(e)}')
     
     def _create_demo_devices(self):
         """Create demo devices for testing"""
@@ -205,24 +209,62 @@ class TrackingConfig(models.Model):
         created_count = 0
         updated_count = 0
         
-        for device_info in devices_data.get('devices', []):
+        # Support different API response formats
+        if isinstance(devices_data, list):
+            # Direct list of devices
+            devices_list = devices_data
+        elif isinstance(devices_data, dict):
+            # Dictionary with 'devices' key or other possible keys
+            devices_list = (devices_data.get('devices') or 
+                          devices_data.get('data') or 
+                          devices_data.get('items') or 
+                          devices_data.get('results') or
+                          [devices_data])  # Single device object
+        else:
+            raise ValueError(f'Unexpected API response format: {type(devices_data)}')
+        
+        if not devices_list:
+            return self._show_error('No Devices', 'API returned no devices')
+        
+        for device_info in devices_list:
+            # Handle different field naming conventions
+            device_id = (device_info.get('id') or 
+                        device_info.get('device_id') or 
+                        device_info.get('deviceId') or 
+                        device_info.get('uniqueId'))
+            
+            if not device_id:
+                continue  # Skip devices without ID
+            
             existing_device = self.env['tracking.device'].search([
-                ('device_id', '=', device_info.get('id')),
+                ('device_id', '=', str(device_id)),
                 ('config_id', '=', self.id)
             ], limit=1)
             
+            # Extract coordinates
+            lat = (device_info.get('latitude') or 
+                  device_info.get('lat') or 
+                  device_info.get('position', {}).get('latitude') or 
+                  0.0)
+            
+            lng = (device_info.get('longitude') or 
+                  device_info.get('lng') or 
+                  device_info.get('lon') or 
+                  device_info.get('position', {}).get('longitude') or 
+                  0.0)
+            
             vals = {
-                'name': device_info.get('name', 'Unknown Device'),
-                'device_id': device_info.get('id'),
-                'imei': device_info.get('imei'),
+                'name': device_info.get('name') or device_info.get('label') or f'Device {device_id}',
+                'device_id': str(device_id),
+                'imei': device_info.get('imei') or device_info.get('uniqueId') or '',
                 'config_id': self.id,
-                'latitude': device_info.get('latitude', 0.0),
-                'longitude': device_info.get('longitude', 0.0),
-                'speed': device_info.get('speed', 0.0),
-                'address': device_info.get('address', ''),
-                'status': device_info.get('status', 'offline'),
-                'vehicle_id': device_info.get('vehicle_id', ''),
-                'driver_name': device_info.get('driver_name', ''),
+                'latitude': float(lat) if lat else 0.0,
+                'longitude': float(lng) if lng else 0.0,
+                'speed': float(device_info.get('speed', 0) or 0),
+                'address': device_info.get('address') or device_info.get('location') or '',
+                'status': device_info.get('status') or device_info.get('state') or 'offline',
+                'vehicle_id': device_info.get('vehicle_id') or device_info.get('vehicleId') or '',
+                'driver_name': device_info.get('driver_name') or device_info.get('driver') or '',
                 'last_update': datetime.now(),
             }
             
@@ -238,7 +280,7 @@ class TrackingConfig(models.Model):
             'tag': 'display_notification',
             'params': {
                 'title': 'Devices Fetched Successfully',
-                'message': f'Created: {created_count}, Updated: {updated_count}',
+                'message': f'Total: {created_count + updated_count} devices (Created: {created_count}, Updated: {updated_count})',
                 'type': 'success',
                 'sticky': False,
             }

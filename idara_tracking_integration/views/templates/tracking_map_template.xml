@@ -51,7 +51,8 @@
                 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
 
                 <script>
-                    const devices = <t t-esc="devices"/>;
+                    const devicesData = <t t-raw="devices"/>;
+                    console.log('Loaded devices:', devicesData);
                     
                     // Initialize map
                     const map = L.map('map').setView([24.7136, 46.6753], 6);
@@ -63,41 +64,58 @@
 
                     // Add device markers
                     const bounds = L.latLngBounds();
+                    let markersAdded = 0;
                     
-                    devices.forEach(device => {
+                    devicesData.forEach(device => {
                         const lat = parseFloat(device.latitude);
                         const lng = parseFloat(device.longitude);
                         
-                        if (lat &amp;&amp; lng) {
-                            const color = device.status === 'online' ? 'green' : 
-                                         device.status === 'moving' ? 'blue' :
-                                         device.status === 'idle' ? 'orange' : 'red';
+                        console.log('Processing device:', device.name, 'lat:', lat, 'lng:', lng);
+                        
+                        if (lat &amp;&amp; lng &amp;&amp; !isNaN(lat) &amp;&amp; !isNaN(lng)) {
+                            const color = device.status === 'online' ? '#28a745' : 
+                                         device.status === 'moving' ? '#007bff' :
+                                         device.status === 'idle' ? '#ffc107' : '#dc3545';
                             
                             const marker = L.marker([lat, lng], {
                                 icon: L.divIcon({
                                     className: 'custom-marker',
-                                    html: `&lt;div style="background: ${color}; width: 20px; height: 20px; border-radius: 50%; border: 3px solid white; box-shadow: 0 2px 4px rgba(0,0,0,0.3);"&gt;&lt;/div&gt;`,
-                                    iconSize: [20, 20]
+                                    html: `&lt;div style="background: ${color}; width: 24px; height: 24px; border-radius: 50%; border: 3px solid white; box-shadow: 0 2px 6px rgba(0,0,0,0.4);"&gt;&lt;/div&gt;`,
+                                    iconSize: [24, 24],
+                                    iconAnchor: [12, 12]
                                 })
                             }).addTo(map);
                             
+                            const statusBadge = device.status === 'online' ? '🟢 Online' :
+                                               device.status === 'moving' ? '🔵 Moving' :
+                                               device.status === 'idle' ? '🟡 Idle' : '🔴 Offline';
+                            
                             marker.bindPopup(`
-                                &lt;div style="min-width: 200px;"&gt;
-                                    &lt;h3 style="margin: 0 0 10px 0; color: #dc3545;"&gt;${device.name}&lt;/h3&gt;
-                                    &lt;p&gt;&lt;strong&gt;Device:&lt;/strong&gt; ${device.device_id}&lt;/p&gt;
-                                    &lt;p&gt;&lt;strong&gt;Status:&lt;/strong&gt; ${device.status}&lt;/p&gt;
-                                    &lt;p&gt;&lt;strong&gt;Speed:&lt;/strong&gt; ${device.speed} km/h&lt;/p&gt;
-                                    &lt;p&gt;&lt;strong&gt;Driver:&lt;/strong&gt; ${device.driver_name || 'N/A'}&lt;/p&gt;
-                                    &lt;p&gt;&lt;strong&gt;Location:&lt;/strong&gt; ${device.address || 'Unknown'}&lt;/p&gt;
+                                &lt;div style="min-width: 220px; font-family: Arial;"&gt;
+                                    &lt;h3 style="margin: 0 0 12px 0; color: #dc3545; font-size: 16px;"&gt;📍 ${device.name}&lt;/h3&gt;
+                                    &lt;p style="margin: 6px 0; font-size: 13px;"&gt;&lt;strong&gt;Device ID:&lt;/strong&gt; ${device.device_id}&lt;/p&gt;
+                                    &lt;p style="margin: 6px 0; font-size: 13px;"&gt;&lt;strong&gt;Status:&lt;/strong&gt; ${statusBadge}&lt;/p&gt;
+                                    &lt;p style="margin: 6px 0; font-size: 13px;"&gt;&lt;strong&gt;Speed:&lt;/strong&gt; ${device.speed} km/h&lt;/p&gt;
+                                    &lt;p style="margin: 6px 0; font-size: 13px;"&gt;&lt;strong&gt;Driver:&lt;/strong&gt; ${device.driver_name || 'N/A'}&lt;/p&gt;
+                                    &lt;p style="margin: 6px 0; font-size: 13px;"&gt;&lt;strong&gt;Vehicle:&lt;/strong&gt; ${device.vehicle_id || 'N/A'}&lt;/p&gt;
+                                    &lt;p style="margin: 6px 0; font-size: 13px;"&gt;&lt;strong&gt;Location:&lt;/strong&gt; ${device.address || 'Unknown'}&lt;/p&gt;
+                                    &lt;p style="margin: 6px 0; font-size: 11px; color: #666;"&gt;Last update: ${device.last_update || 'N/A'}&lt;/p&gt;
                                 &lt;/div&gt;
                             `);
                             
                             bounds.extend([lat, lng]);
+                            markersAdded++;
+                        } else {
+                            console.warn('Invalid coordinates for device:', device.name);
                         }
                     });
                     
-                    if (devices.length > 0) {
+                    console.log('Total markers added:', markersAdded);
+                    
+                    if (markersAdded > 0) {
                         map.fitBounds(bounds, { padding: [50, 50] });
+                    } else {
+                        console.warn('No valid devices to display on map');
                     }
                 </script>
             </div>
