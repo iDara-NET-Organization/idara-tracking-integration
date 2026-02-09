@@ -1,140 +1,145 @@
 <?xml version="1.0" encoding="utf-8"?>
 <odoo>
     <template id="tracking_map_template" name="Tracking Map">
-<html>
-<head>
-    <meta charset="utf-8"/>
-    <title>Live Device Tracking</title>
-    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
-    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-    <style>
-        * { margin: 0; padding: 0; box-sizing: border-box; }
-        body { font-family: Arial, sans-serif; overflow: hidden; }
-        #header {
-            background: linear-gradient(135deg, #dc3545, #c82333);
-            color: white; padding: 15px 20px; height: 70px;
-            display: flex; align-items: center; justify-content: space-between;
-        }
-        #map { height: calc(100vh - 70px); width: 100vw; }
-        .device-count { background: #28a745; color: white; padding: 8px 15px; border-radius: 15px; font-weight: bold; }
-        .device-label {
-            background: white; padding: 4px 8px; border-radius: 3px;
-            font-size: 11px; font-weight: bold; box-shadow: 0 1px 4px rgba(0,0,0,0.3);
-            margin-top: -8px; white-space: nowrap;
-        }
-        .leaflet-marker-icon { transition: all 0.8s ease-in-out !important; }
-    </style>
-</head>
-<body>
-    <div id="header">
-        <div style="display:flex;align-items:center">
-            <img src="/idara_tracking_integration/static/src/img/logo.png" style="height:45px;margin-right:15px"/>
-            <span style="font-size:22px">🗺️ Live Device Tracking</span>
-        </div>
-        <span class="device-count" id="device-count"><t t-esc="device_count or 0"/> Devices</span>
-    </div>
-    <div id="map"></div>
-    
-    <script>
-    //<![CDATA[
-    var devs = <t t-raw="devices"/>;
-    var tzOff = <t t-esc="timezone_offset or 3"/>;
-    var refInt = <t t-esc="refresh_interval"/>;
-    var map, mrks = {};
-    
-    function col(s) {
-        return s === 'online' ? '#28a745' : s === 'moving' ? '#007bff' : s === 'idle' ? '#ffc107' : '#dc3545';
-    }
-    
-    function bdg(s) {
-        return s === 'online' ? '🟢 Online' : s === 'moving' ? '🔵 Moving' : s === 'idle' ? '🟡 Idle' : '🔴 Offline';
-    }
-    
-    function tm(t) {
-        if (!t) return 'N/A';
-        try {
-            var d = new Date(t + 'Z');
-            d.setHours(d.getHours() + tzOff);
-            return d.toLocaleString();
-        } catch(e) { return t; }
-    }
-    
-    function ini() {
-        if (typeof L === 'undefined') { setTimeout(ini, 500); return; }
-        
-        map = L.map('map').setView([24.7136, 46.6753], 6);
-        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
-        
-        var b = L.latLngBounds();
-        devs.forEach(function(d) {
-            var m = add(d);
-            if (m) b.extend(m.getLatLng());
-        });
-        
-        if (devs.length > 0) map.fitBounds(b, {padding: [50, 50]});
-        if (refInt > 0) setInterval(ref, refInt);
-    }
-    
-    function add(d) {
-        var la = parseFloat(d.latitude), ln = parseFloat(d.longitude);
-        if (!la || !ln) return null;
-        
-        var c = col(d.status), nm = d.name || d.device_id || 'Unknown';
-        var m = L.marker([la, ln], {
-            icon: L.divIcon({
-                className: '',
-                html: '<div style="position:relative"><div style="background:' + c + ';width:24px;height:24px;border-radius:50%;border:3px solid white;box-shadow:0 2px 6px rgba(0,0,0,0.4)"></div><div class="device-label">' + nm + '</div></div>',
-                iconSize: [120, 40],
-                iconAnchor: [60, 32]
-            })
-        }).addTo(map);
-        
-        m.bindPopup(
-            '<div style="min-width:220px"><h3 style="margin:0 0 12px 0;color:#dc3545">📍 ' + nm + '</h3>' +
-            '<p style="margin:6px 0"><b>Device:</b> ' + (d.device_id || 'N/A') + '</p>' +
-            '<p style="margin:6px 0"><b>Status:</b> ' + bdg(d.status) + '</p>' +
-            '<p style="margin:6px 0"><b>Speed:</b> ' + (d.speed || 0) + ' km/h</p>' +
-            '<p style="margin:6px 0"><b>Driver:</b> ' + (d.driver_name || 'N/A') + '</p>' +
-            '<p style="margin:6px 0"><b>Location:</b> ' + (d.address || 'Unknown') + '</p>' +
-            '<p style="margin:6px 0;font-size:11px;color:#666">Last: ' + tm(d.last_update) + '</p></div>'
-        );
-        
-        mrks[d.id] = m;
-        return m;
-    }
-    
-    function ref() {
-        fetch('/idara_tracking/devices/json', {
-            method: 'POST',
-            headers: {'Content-Type': 'application/json'},
-            body: JSON.stringify({jsonrpc: '2.0', method: 'call', params: {}, id: Date.now()})
-        })
-        .then(function(r) { return r.json(); })
-        .then(function(dt) {
-            var ds = dt.result;
-            if (!ds || !Array.isArray(ds)) return;
+        <t t-call="web.layout">
+            <t t-set="head">
+                <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+                <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+                <style>
+                    body.o_web_client { overflow: hidden; }
+                    #header { background: linear-gradient(135deg, #dc3545, #c82333); color: white; padding: 15px 20px; height: 70px; display: flex; align-items: center; justify-content: space-between; }
+                    #map { height: calc(100vh - 70px); width: 100%; }
+                    .device-count { background: #28a745; color: white; padding: 8px 15px; border-radius: 15px; font-weight: bold; }
+                    .device-label { background: white; padding: 4px 8px; border-radius: 3px; font-size: 11px; font-weight: bold; box-shadow: 0 1px 4px rgba(0,0,0,0.3); margin-top: -8px; }
+                    .leaflet-marker-icon { transition: all 0.8s ease-in-out !important; }
+                </style>
+            </t>
             
-            document.getElementById('device-count').textContent = ds.length + ' Devices';
-            ds.forEach(function(d) {
-                var m = mrks[d.id];
-                if (m) {
-                    m.setLatLng([parseFloat(d.latitude), parseFloat(d.longitude)]);
-                    var c = col(d.status), nm = d.name || d.device_id || 'Unknown';
-                    m.setIcon(L.divIcon({
-                        className: '',
-                        html: '<div style="position:relative"><div style="background:' + c + ';width:24px;height:24px;border-radius:50%;border:3px solid white;box-shadow:0 2px 6px rgba(0,0,0,0.4)"></div><div class="device-label">' + nm + '</div></div>',
-                        iconSize: [120, 40],
-                        iconAnchor: [60, 32]
-                    }));
-                } else { add(d); }
-            });
-        });
-    }
-    
-    setTimeout(ini, 100);
-    //]]>
-    </script>
-</body>
-</html>
+            <div id="header">
+                <div style="display:flex;align-items:center">
+                    <img src="/idara_tracking_integration/static/src/img/logo.png" style="height:45px;margin-right:15px"/>
+                    <span style="font-size:22px">🗺️ Live Device Tracking</span>
+                </div>
+                <span class="device-count" id="device-count"><t t-esc="device_count"/> Devices</span>
+            </div>
+            <div id="map"></div>
+            
+            <script type="text/javascript">
+            //<![CDATA[
+            (function() {
+                var devicesData = <t t-out="devices"/>;
+                var timezoneOffset = parseInt('<t t-esc="timezone_offset"/>');
+                var refreshInterval = parseInt('<t t-esc="refresh_interval"/>');
+                var map, markers = {};
+                
+                function getColor(status) {
+                    if (status === 'online') return '#28a745';
+                    if (status === 'moving') return '#007bff';
+                    if (status === 'idle') return '#ffc107';
+                    return '#dc3545';
+                }
+                
+                function getStatusBadge(status) {
+                    if (status === 'online') return '🟢 Online';
+                    if (status === 'moving') return '🔵 Moving';
+                    if (status === 'idle') return '🟡 Idle';
+                    return '🔴 Offline';
+                }
+                
+                function adjustTimezone(dateStr) {
+                    if (!dateStr) return 'N/A';
+                    try {
+                        var d = new Date(dateStr + 'Z');
+                        d.setHours(d.getHours() + timezoneOffset);
+                        return d.toLocaleString();
+                    } catch(e) { return dateStr; }
+                }
+                
+                function init() {
+                    if (typeof L === 'undefined') { setTimeout(init, 500); return; }
+                    
+                    map = L.map('map').setView([24.7136, 46.6753], 6);
+                    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
+                    
+                    var bounds = L.latLngBounds();
+                    devicesData.forEach(function(device) {
+                        var marker = addMarker(device);
+                        if (marker) bounds.extend(marker.getLatLng());
+                    });
+                    
+                    if (devicesData.length > 0) map.fitBounds(bounds, {padding: [50, 50]});
+                    if (refreshInterval > 0) setInterval(refreshDevices, refreshInterval);
+                }
+                
+                function addMarker(device) {
+                    var lat = parseFloat(device.latitude);
+                    var lng = parseFloat(device.longitude);
+                    if (!lat || !lng) return null;
+                    
+                    var color = getColor(device.status);
+                    var name = device.name || device.device_id || 'Unknown';
+                    
+                    var marker = L.marker([lat, lng], {
+                        icon: L.divIcon({
+                            className: '',
+                            html: '<div style="position:relative"><div style="background:' + color + ';width:24px;height:24px;border-radius:50%;border:3px solid white;box-shadow:0 2px 6px rgba(0,0,0,0.4)"></div><div class="device-label">' + name + '</div></div>',
+                            iconSize: [120, 40],
+                            iconAnchor: [60, 32]
+                        })
+                    }).addTo(map);
+                    
+                    marker.bindPopup(
+                        '<div style="min-width:220px">' +
+                        '<h3 style="margin:0 0 12px 0;color:#dc3545">📍 ' + name + '</h3>' +
+                        '<p style="margin:6px 0"><b>Device:</b> ' + (device.device_id || 'N/A') + '</p>' +
+                        '<p style="margin:6px 0"><b>Status:</b> ' + getStatusBadge(device.status) + '</p>' +
+                        '<p style="margin:6px 0"><b>Speed:</b> ' + (device.speed || 0) + ' km/h</p>' +
+                        '<p style="margin:6px 0"><b>Driver:</b> ' + (device.driver_name || 'N/A') + '</p>' +
+                        '<p style="margin:6px 0"><b>Location:</b> ' + (device.address || 'Unknown') + '</p>' +
+                        '<p style="margin:6px 0;font-size:11px;color:#666">Last: ' + adjustTimezone(device.last_update) + '</p>' +
+                        '</div>'
+                    );
+                    
+                    markers[device.id] = marker;
+                    return marker;
+                }
+                
+                function refreshDevices() {
+                    fetch('/idara_tracking/devices/json', {
+                        method: 'POST',
+                        headers: {'Content-Type': 'application/json'},
+                        body: JSON.stringify({jsonrpc: '2.0', method: 'call', params: {}, id: Date.now()})
+                    })
+                    .then(function(response) { return response.json(); })
+                    .then(function(data) {
+                        var devices = data.result;
+                        if (!devices || !Array.isArray(devices)) return;
+                        
+                        document.getElementById('device-count').textContent = devices.length + ' Devices';
+                        
+                        devices.forEach(function(device) {
+                            var marker = markers[device.id];
+                            if (marker) {
+                                marker.setLatLng([parseFloat(device.latitude), parseFloat(device.longitude)]);
+                                var color = getColor(device.status);
+                                var name = device.name || device.device_id || 'Unknown';
+                                marker.setIcon(L.divIcon({
+                                    className: '',
+                                    html: '<div style="position:relative"><div style="background:' + color + ';width:24px;height:24px;border-radius:50%;border:3px solid white;box-shadow:0 2px 6px rgba(0,0,0,0.4)"></div><div class="device-label">' + name + '</div></div>',
+                                    iconSize: [120, 40],
+                                    iconAnchor: [60, 32]
+                                }));
+                            } else {
+                                addMarker(device);
+                            }
+                        });
+                    });
+                }
+                
+                setTimeout(init, 100);
+            })();
+            //]]>
+            </script>
+        </t>
     </template>
 </odoo>
