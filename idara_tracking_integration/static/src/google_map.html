@@ -1,0 +1,380 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Idara Tracking - Google Maps</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            overflow: hidden;
+        }
+        #header {
+            background: linear-gradient(135deg, #dc3545 0%, #c82333 100%);
+            color: white;
+            padding: 12px 20px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            position: relative;
+            z-index: 1000;
+        }
+        .header-left {
+            display: flex;
+            align-items: center;
+        }
+        #header img {
+            height: 45px;
+            margin-right: 15px;
+        }
+        #header h1 {
+            margin: 0;
+            font-size: 22px;
+            font-weight: 600;
+        }
+        .header-right {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+        }
+        .btn {
+            background: rgba(255,255,255,0.2);
+            color: white;
+            border: 1px solid rgba(255,255,255,0.3);
+            padding: 8px 16px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 14px;
+            transition: all 0.3s;
+        }
+        .btn:hover {
+            background: rgba(255,255,255,0.3);
+        }
+        .status-badge {
+            padding: 4px 12px;
+            border-radius: 12px;
+            font-size: 12px;
+            font-weight: 600;
+        }
+        #map {
+            height: calc(100vh - 69px);
+            width: 100%;
+        }
+        .info-window {
+            max-width: 280px;
+            font-family: inherit;
+        }
+        .info-window h3 {
+            margin: 0 0 12px 0;
+            color: #dc3545;
+            font-size: 18px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .info-window .info-row {
+            display: flex;
+            margin: 8px 0;
+            font-size: 14px;
+        }
+        .info-window .info-label {
+            font-weight: 600;
+            color: #666;
+            min-width: 80px;
+        }
+        .info-window .info-value {
+            color: #333;
+        }
+        .status-online { 
+            color: #28a745;
+            background: #d4edda;
+        }
+        .status-offline { 
+            color: #dc3545;
+            background: #f8d7da;
+        }
+        .status-moving { 
+            color: #007bff;
+            background: #d1ecf1;
+        }
+        .status-idle { 
+            color: #ffc107;
+            background: #fff3cd;
+        }
+        #loading {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: white;
+            padding: 30px 40px;
+            border-radius: 10px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.2);
+            text-align: center;
+            z-index: 2000;
+        }
+        .spinner {
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #dc3545;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 15px;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body>
+    <div id="header">
+        <div class="header-left">
+            <img src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==" alt="Idara Tracking" id="logoImg">
+            <h1>🗺️ Live Device Tracking</h1>
+        </div>
+        <div class="header-right">
+            <button class="btn" onclick="refreshDevices()">🔄 Refresh</button>
+            <span id="deviceCount" class="status-badge status-online">0 Devices</span>
+        </div>
+    </div>
+    
+    <div id="loading">
+        <div class="spinner"></div>
+        <div>Loading map...</div>
+    </div>
+    
+    <div id="map"></div>
+
+    <script>
+        // Configuration - Replace with your actual API key
+        const GOOGLE_MAPS_API_KEY = 'YOUR_GOOGLE_MAPS_API_KEY_HERE';
+        const ODOO_API_ENDPOINT = '/web/dataset/call_kw/tracking.device/search_read';
+        
+        let map;
+        let markers = [];
+        let infoWindow;
+
+        // Initialize Google Maps
+        function initMap() {
+            // Default center: Riyadh, Saudi Arabia
+            const defaultCenter = { lat: 24.7136, lng: 46.6753 };
+            
+            map = new google.maps.Map(document.getElementById('map'), {
+                zoom: 6,
+                center: defaultCenter,
+                mapTypeControl: true,
+                streetViewControl: false,
+                fullscreenControl: true,
+                styles: [
+                    {
+                        featureType: "poi",
+                        elementType: "labels",
+                        stylers: [{ visibility: "off" }]
+                    }
+                ]
+            });
+
+            infoWindow = new google.maps.InfoWindow();
+            
+            // Load devices
+            loadDevices();
+            
+            // Hide loading spinner
+            document.getElementById('loading').style.display = 'none';
+            
+            // Auto-refresh every 30 seconds
+            setInterval(refreshDevices, 30000);
+        }
+
+        // Load devices from API or use example data
+        function loadDevices() {
+            // Example devices - Replace with actual API call
+            const devices = [
+                {
+                    id: 1,
+                    name: "Vehicle 1",
+                    device_id: "DEV001",
+                    latitude: 24.7136,
+                    longitude: 46.6753,
+                    speed: 45.5,
+                    status: "moving",
+                    driver_name: "Ahmad Al-Rashid",
+                    vehicle_id: "VEH-001",
+                    address: "King Fahd Road, Riyadh",
+                    last_update: "2026-02-09 14:30:00"
+                },
+                {
+                    id: 2,
+                    name: "Vehicle 2",
+                    device_id: "DEV002",
+                    latitude: 21.4225,
+                    longitude: 39.8262,
+                    speed: 0,
+                    status: "idle",
+                    driver_name: "Mohammed Hassan",
+                    vehicle_id: "VEH-002",
+                    address: "Palestine Street, Jeddah",
+                    last_update: "2026-02-09 14:28:00"
+                },
+                {
+                    id: 3,
+                    name: "Vehicle 3",
+                    device_id: "DEV003",
+                    latitude: 26.4207,
+                    longitude: 50.0888,
+                    speed: 62.3,
+                    status: "online",
+                    driver_name: "Khalid Ahmed",
+                    vehicle_id: "VEH-003",
+                    address: "Dhahran Highway, Dammam",
+                    last_update: "2026-02-09 14:32:00"
+                },
+                {
+                    id: 4,
+                    name: "Vehicle 4",
+                    device_id: "DEV004",
+                    latitude: 24.4539,
+                    longitude: 54.3773,
+                    speed: 0,
+                    status: "offline",
+                    driver_name: "Abdullah Saeed",
+                    vehicle_id: "VEH-004",
+                    address: "Abu Dhabi, UAE",
+                    last_update: "2026-02-09 12:15:00"
+                }
+            ];
+
+            displayDevices(devices);
+        }
+
+        // Display devices on map
+        function displayDevices(devices) {
+            // Clear existing markers
+            markers.forEach(marker => marker.setMap(null));
+            markers = [];
+
+            const bounds = new google.maps.LatLngBounds();
+
+            devices.forEach(device => {
+                const position = { 
+                    lat: parseFloat(device.latitude), 
+                    lng: parseFloat(device.longitude) 
+                };
+
+                // Custom marker icon based on status
+                const icon = {
+                    path: google.maps.SymbolPath.CIRCLE,
+                    scale: 10,
+                    fillColor: getStatusColor(device.status),
+                    fillOpacity: 1,
+                    strokeColor: '#ffffff',
+                    strokeWeight: 2
+                };
+
+                const marker = new google.maps.Marker({
+                    position: position,
+                    map: map,
+                    title: device.name,
+                    icon: icon,
+                    animation: device.status === 'moving' ? google.maps.Animation.BOUNCE : null
+                });
+
+                // Info window content
+                const contentString = `
+                    <div class="info-window">
+                        <h3>📍 ${device.name}</h3>
+                        <div class="info-row">
+                            <span class="info-label">Device ID:</span>
+                            <span class="info-value">${device.device_id}</span>
+                        </div>
+                        <div class="info-row">
+                            <span class="info-label">Status:</span>
+                            <span class="info-value">
+                                <span class="status-badge status-${device.status}">${device.status.toUpperCase()}</span>
+                            </span>
+                        </div>
+                        <div class="info-row">
+                            <span class="info-label">Speed:</span>
+                            <span class="info-value">${device.speed} km/h</span>
+                        </div>
+                        <div class="info-row">
+                            <span class="info-label">Driver:</span>
+                            <span class="info-value">${device.driver_name || 'N/A'}</span>
+                        </div>
+                        <div class="info-row">
+                            <span class="info-label">Vehicle:</span>
+                            <span class="info-value">${device.vehicle_id || 'N/A'}</span>
+                        </div>
+                        <div class="info-row">
+                            <span class="info-label">Location:</span>
+                            <span class="info-value">${device.address || 'Unknown'}</span>
+                        </div>
+                        <div class="info-row">
+                            <span class="info-label">Last Update:</span>
+                            <span class="info-value">${device.last_update}</span>
+                        </div>
+                    </div>
+                `;
+
+                marker.addListener('click', () => {
+                    infoWindow.setContent(contentString);
+                    infoWindow.open(map, marker);
+                });
+
+                markers.push(marker);
+                bounds.extend(position);
+            });
+
+            // Fit map to show all markers
+            if (devices.length > 0) {
+                map.fitBounds(bounds);
+                if (devices.length === 1) {
+                    map.setZoom(14);
+                }
+            }
+
+            // Update device count
+            document.getElementById('deviceCount').textContent = `${devices.length} Device${devices.length !== 1 ? 's' : ''}`;
+        }
+
+        // Get color based on status
+        function getStatusColor(status) {
+            const colors = {
+                'online': '#28a745',
+                'offline': '#dc3545',
+                'moving': '#007bff',
+                'idle': '#ffc107'
+            };
+            return colors[status] || '#6c757d';
+        }
+
+        // Refresh devices
+        function refreshDevices() {
+            console.log('Refreshing devices...');
+            loadDevices();
+        }
+
+        // Load Google Maps API
+        function loadGoogleMapsAPI() {
+            const script = document.createElement('script');
+            script.src = `https://maps.googleapis.com/maps/api/js?key=${GOOGLE_MAPS_API_KEY}&callback=initMap`;
+            script.async = true;
+            script.defer = true;
+            document.head.appendChild(script);
+        }
+
+        // Initialize on load
+        window.addEventListener('load', () => {
+            loadGoogleMapsAPI();
+        });
+    </script>
+</body>
+</html>

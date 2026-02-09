@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <!-- Map View Action - Opens in browser -->
+    <record id="action_tracking_map_view" model="ir.actions.act_url">
+        <field name="name">Device Map</field>
+        <field name="url">/idara_tracking/map</field>
+        <field name="target">new</field>
+    </record>
+</odoo>

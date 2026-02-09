@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <!-- Main Menu -->
+    <menuitem id="menu_tracking_root"
+              name="Idara Tracking"
+              web_icon="idara_tracking_integration,static/description/icon.png"
+              sequence="10"/>
+
+    <!-- Configuration Menu -->
+    <menuitem id="menu_tracking_configuration"
+              name="Configuration"
+              parent="menu_tracking_root"
+              sequence="10"
+              action="action_tracking_config"/>
+
+    <!-- Devices Menu -->
+    <menuitem id="menu_tracking_devices"
+              name="Devices"
+              parent="menu_tracking_root"
+              sequence="20"
+              action="action_tracking_device"/>
+
+    <!-- Map View Menu -->
+    <menuitem id="menu_tracking_map"
+              name="Map View"
+              parent="menu_tracking_root"
+              sequence="30"
+              action="action_tracking_map_view"/>
+</odoo>
