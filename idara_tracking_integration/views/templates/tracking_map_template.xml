@@ -33,6 +33,25 @@
                         font-weight: bold;
                     }
                     #map { height: calc(100vh - 80px); width: 100%; }
+                    
+                    /* Device label styles */
+                    .device-label {
+                        background: white;
+                        padding: 4px 8px;
+                        border-radius: 3px;
+                        font-size: 11px;
+                        font-weight: bold;
+                        white-space: nowrap;
+                        box-shadow: 0 1px 4px rgba(0,0,0,0.3);
+                        border: 1px solid #ddd;
+                        margin-top: -8px;
+                        text-align: center;
+                    }
+                    
+                    /* Smooth marker transition */
+                    .leaflet-marker-icon {
+                        transition: all 0.8s ease-in-out !important;
+                    }
                 </style>
 
                 <div id="header">
@@ -41,7 +60,7 @@
                         <h1>🗺️ Live Device Tracking</h1>
                     </div>
                     <div>
-                        <span class="device-count"><t t-esc="device_count"/> Devices</span>
+                        <span class="device-count" id="device-count"><t t-esc="device_count"/> Devices</span>
                     </div>
                 </div>
 
@@ -51,8 +70,8 @@
                 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
 
                 <script>
-                    const devicesData = <t t-raw="devices"/>;
-                    console.log('Loaded devices:', devicesData);
+                    const initialDevices = <t t-raw="devices"/>;
+                    console.log('Initial devices loaded:', initialDevices.length);
                     
                     // Initialize map
                     const map = L.map('map').setView([24.7136, 46.6753], 6);
@@ -62,51 +81,167 @@
                         maxZoom: 19
                     }).addTo(map);
 
-                    // Add device markers
-                    const bounds = L.latLngBounds();
-                    let markersAdded = 0;
+                    // Store markers by device ID for smooth updates
+                    const deviceMarkers = {};
                     
-                    devicesData.forEach(device => {
+                    function getMarkerColor(status) {
+                        const colors = {
+                            'online': '#28a745',
+                            'moving': '#007bff',
+                            'idle': '#ffc107',
+                            'offline': '#dc3545'
+                        };
+                        return colors[status] || '#dc3545';
+                    }
+                    
+                    function getStatusBadge(status) {
+                        const badges = {
+                            'online': '🟢 Online',
+                            'moving': '🔵 Moving',
+                            'idle': '🟡 Idle',
+                            'offline': '🔴 Offline'
+                        };
+                        return badges[status] || '🔴 Offline';
+                    }
+                    
+                    function createDeviceMarker(device) {
                         const lat = parseFloat(device.latitude);
                         const lng = parseFloat(device.longitude);
                         
-                        console.log('Processing device:', device.name, 'lat:', lat, 'lng:', lng);
-                        
-                        if (lat &amp;&amp; lng &amp;&amp; !isNaN(lat) &amp;&amp; !isNaN(lng)) {
-                            const color = device.status === 'online' ? '#28a745' : 
-                                         device.status === 'moving' ? '#007bff' :
-                                         device.status === 'idle' ? '#ffc107' : '#dc3545';
-                            
-                            const marker = L.marker([lat, lng], {
-                                icon: L.divIcon({
-                                    className: 'custom-marker',
-                                    html: `&lt;div style="background: ${color}; width: 24px; height: 24px; border-radius: 50%; border: 3px solid white; box-shadow: 0 2px 6px rgba(0,0,0,0.4);"&gt;&lt;/div&gt;`,
-                                    iconSize: [24, 24],
-                                    iconAnchor: [12, 12]
-                                })
-                            }).addTo(map);
-                            
-                            const statusBadge = device.status === 'online' ? '🟢 Online' :
-                                               device.status === 'moving' ? '🔵 Moving' :
-                                               device.status === 'idle' ? '🟡 Idle' : '🔴 Offline';
-                            
-                            marker.bindPopup(`
-                                &lt;div style="min-width: 220px; font-family: Arial;"&gt;
-                                    &lt;h3 style="margin: 0 0 12px 0; color: #dc3545; font-size: 16px;"&gt;📍 ${device.name}&lt;/h3&gt;
-                                    &lt;p style="margin: 6px 0; font-size: 13px;"&gt;&lt;strong&gt;Device ID:&lt;/strong&gt; ${device.device_id}&lt;/p&gt;
-                                    &lt;p style="margin: 6px 0; font-size: 13px;"&gt;&lt;strong&gt;Status:&lt;/strong&gt; ${statusBadge}&lt;/p&gt;
-                                    &lt;p style="margin: 6px 0; font-size: 13px;"&gt;&lt;strong&gt;Speed:&lt;/strong&gt; ${device.speed} km/h&lt;/p&gt;
-                                    &lt;p style="margin: 6px 0; font-size: 13px;"&gt;&lt;strong&gt;Driver:&lt;/strong&gt; ${device.driver_name || 'N/A'}&lt;/p&gt;
-                                    &lt;p style="margin: 6px 0; font-size: 13px;"&gt;&lt;strong&gt;Vehicle:&lt;/strong&gt; ${device.vehicle_id || 'N/A'}&lt;/p&gt;
-                                    &lt;p style="margin: 6px 0; font-size: 13px;"&gt;&lt;strong&gt;Location:&lt;/strong&gt; ${device.address || 'Unknown'}&lt;/p&gt;
-                                    &lt;p style="margin: 6px 0; font-size: 11px; color: #666;"&gt;Last update: ${device.last_update || 'N/A'}&lt;/p&gt;
-                                &lt;/div&gt;
-                            `);
-                            
-                            bounds.extend([lat, lng]);
-                            markersAdded++;
-                        } else {
+                        if (!lat || !lng || isNaN(lat) || isNaN(lng)) {
                             console.warn('Invalid coordinates for device:', device.name);
+                            return null;
+                        }
+                        
+                        const color = getMarkerColor(device.status);
+                        const deviceName = device.name || device.device_id || 'Unknown';
+                        
+                        // Create marker with label
+                        const marker = L.marker([lat, lng], {
+                            icon: L.divIcon({
+                                className: 'custom-marker',
+                                html: `
+                                    <div style="position: relative;">
+                                        <div style="background: ${color}; width: 24px; height: 24px; border-radius: 50%; border: 3px solid white; box-shadow: 0 2px 6px rgba(0,0,0,0.4);"></div>
+                                        <div class="device-label">${deviceName}</div>
+                                    </div>
+                                `,
+                                iconSize: [120, 40],
+                                iconAnchor: [60, 32]
+                            })
+                        }).addTo(map);
+                        
+                        // Bind popup
+                        marker.bindPopup(`
+                            <div style="min-width: 220px; font-family: Arial;">
+                                <h3 style="margin: 0 0 12px 0; color: #dc3545; font-size: 16px;">📍 ${deviceName}</h3>
+                                <p style="margin: 6px 0; font-size: 13px;"><strong>Device ID:</strong> ${device.device_id || 'N/A'}</p>
+                                <p style="margin: 6px 0; font-size: 13px;"><strong>Status:</strong> ${getStatusBadge(device.status)}</p>
+                                <p style="margin: 6px 0; font-size: 13px;"><strong>Speed:</strong> ${device.speed || 0} km/h</p>
+                                <p style="margin: 6px 0; font-size: 13px;"><strong>Driver:</strong> ${device.driver_name || 'N/A'}</p>
+                                <p style="margin: 6px 0; font-size: 13px;"><strong>Vehicle:</strong> ${device.vehicle_id || 'N/A'}</p>
+                                <p style="margin: 6px 0; font-size: 13px;"><strong>Location:</strong> ${device.address || 'Unknown'}</p>
+                                <p style="margin: 6px 0; font-size: 11px; color: #666;">Last update: ${device.last_update || 'N/A'}</p>
+                            </div>
+                        `);
+                        
+                        return marker;
+                    }
+                    
+                    function updateDeviceMarker(device) {
+                        const lat = parseFloat(device.latitude);
+                        const lng = parseFloat(device.longitude);
+                        
+                        if (!lat || !lng || isNaN(lat) || isNaN(lng)) {
+                            return;
+                        }
+                        
+                        const deviceKey = device.id.toString();
+                        const existingMarker = deviceMarkers[deviceKey];
+                        
+                        if (existingMarker) {
+                            // Update existing marker - smooth movement
+                            const newLatLng = L.latLng(lat, lng);
+                            const oldLatLng = existingMarker.getLatLng();
+                            
+                            // Only update if position changed
+                            if (oldLatLng.lat !== newLatLng.lat || oldLatLng.lng !== newLatLng.lng) {
+                                existingMarker.setLatLng(newLatLng);
+                            }
+                            
+                            // Update marker icon and label
+                            const color = getMarkerColor(device.status);
+                            const deviceName = device.name || device.device_id || 'Unknown';
+                            
+                            existingMarker.setIcon(L.divIcon({
+                                className: 'custom-marker',
+                                html: `
+                                    <div style="position: relative;">
+                                        <div style="background: ${color}; width: 24px; height: 24px; border-radius: 50%; border: 3px solid white; box-shadow: 0 2px 6px rgba(0,0,0,0.4);"></div>
+                                        <div class="device-label">${deviceName}</div>
+                                    </div>
+                                `,
+                                iconSize: [120, 40],
+                                iconAnchor: [60, 32]
+                            }));
+                            
+                            // Update popup content
+                            existingMarker.setPopupContent(`
+                                <div style="min-width: 220px; font-family: Arial;">
+                                    <h3 style="margin: 0 0 12px 0; color: #dc3545; font-size: 16px;">📍 ${deviceName}</h3>
+                                    <p style="margin: 6px 0; font-size: 13px;"><strong>Device ID:</strong> ${device.device_id || 'N/A'}</p>
+                                    <p style="margin: 6px 0; font-size: 13px;"><strong>Status:</strong> ${getStatusBadge(device.status)}</p>
+                                    <p style="margin: 6px 0; font-size: 13px;"><strong>Speed:</strong> ${device.speed || 0} km/h</p>
+                                    <p style="margin: 6px 0; font-size: 13px;"><strong>Driver:</strong> ${device.driver_name || 'N/A'}</p>
+                                    <p style="margin: 6px 0; font-size: 13px;"><strong>Vehicle:</strong> ${device.vehicle_id || 'N/A'}</p>
+                                    <p style="margin: 6px 0; font-size: 13px;"><strong>Location:</strong> ${device.address || 'Unknown'}</p>
+                                    <p style="margin: 6px 0; font-size: 11px; color: #666;">Last update: ${device.last_update || 'N/A'}</p>
+                                </div>
+                            `);
+                        } else {
+                            // Create new marker
+                            const marker = createDeviceMarker(device);
+                            if (marker) {
+                                deviceMarkers[deviceKey] = marker;
+                            }
+                        }
+                    }
+                    
+                    function refreshDevices() {
+                        console.log('Fetching updated device positions...');
+                        
+                        // Use Odoo's RPC to fetch updated devices
+                        odoo.define('tracking_map_refresh', function(require) {
+                            var ajax = require('web.ajax');
+                            
+                            ajax.jsonRpc('/idara_tracking/devices/json', 'call', {})
+                                .then(function(devices) {
+                                    console.log('Received', devices.length, 'device updates');
+                                    
+                                    // Update device count
+                                    document.getElementById('device-count').textContent = devices.length + ' Devices';
+                                    
+                                    // Update each device marker
+                                    devices.forEach(function(device) {
+                                        updateDeviceMarker(device);
+                                    });
+                                })
+                                .catch(function(error) {
+                                    console.error('Error fetching devices:', error);
+                                });
+                        });
+                    }
+                    
+                    // Initialize map with devices
+                    const bounds = L.latLngBounds();
+                    let markersAdded = 0;
+                    
+                    initialDevices.forEach(device => {
+                        const marker = createDeviceMarker(device);
+                        if (marker) {
+                            deviceMarkers[device.id.toString()] = marker;
+                            bounds.extend(marker.getLatLng());
+                            markersAdded++;
                         }
                     });
                     
@@ -123,10 +258,7 @@
                     console.log(`Auto-refresh enabled: every ${refreshInterval / 1000} seconds`);
                     
                     if (refreshInterval > 0) {
-                        setInterval(() => {
-                            console.log('Auto-refreshing device locations...');
-                            location.reload();
-                        }, refreshInterval);
+                        setInterval(refreshDevices, refreshInterval);
                     }
                 </script>
             </div>
