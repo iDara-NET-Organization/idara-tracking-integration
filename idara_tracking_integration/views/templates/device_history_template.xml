@@ -275,15 +275,15 @@
             </div>
             
             <script type="text/javascript">
+            //<![CDATA[
                 let map;
                 let routeLine;
                 let markers = [];
                 
                 function initMap() {
-                    // Initialize map centered on Saudi Arabia
                     map = new google.maps.Map(document.getElementById('history-map'), {
                         zoom: 6,
-                        center: { lat: 24.7136, lng: 46.6753 }, // Riyadh
+                        center: { lat: 24.7136, lng: 46.6753 },
                         mapTypeId: 'roadmap',
                         styles: [
                             {
@@ -299,14 +299,13 @@
                     const now = new Date();
                     const yesterday = new Date(now.getTime() - 24 * 60 * 60 * 1000);
                     
-                    // Format for datetime-local input
                     const formatDateTime = (date) => {
                         const year = date.getFullYear();
                         const month = String(date.getMonth() + 1).padStart(2, '0');
                         const day = String(date.getDate()).padStart(2, '0');
                         const hours = String(date.getHours()).padStart(2, '0');
                         const minutes = String(date.getMinutes()).padStart(2, '0');
-                        return `${year}-${month}-${day}T${hours}:${minutes}`;
+                        return year + '-' + month + '-' + day + 'T' + hours + ':' + minutes;
                     };
                     
                     document.getElementById('from-datetime').value = formatDateTime(yesterday);
@@ -333,12 +332,10 @@
                 }
                 
                 function clearMap() {
-                    // Clear existing route
                     if (routeLine) {
                         routeLine.setMap(null);
                     }
                     
-                    // Clear markers
                     markers.forEach(marker => marker.setMap(null));
                     markers = [];
                 }
@@ -358,14 +355,12 @@
                         return;
                     }
                     
-                    // Convert datetime-local format to required format
                     const fromDT = fromDateTime.replace('T', ' ') + ':00';
                     const toDT = toDateTime.replace('T', ' ') + ':00';
                     
                     showLoading(true);
                     clearMap();
                     
-                    // Call Odoo JSON-RPC
                     odoo.define('device_history_loader', function(require) {
                         var ajax = require('web.ajax');
                         
@@ -402,7 +397,6 @@
                     let totalPoints = 0;
                     let stopsCount = 0;
                     
-                    // Extract all GPS points from history items
                     historyData.items.forEach(segment => {
                         if (segment.items && Array.isArray(segment.items)) {
                             segment.items.forEach(point => {
@@ -418,7 +412,7 @@
                                 }
                             });
                             
-                            if (segment.status === 2) { // Stop status
+                            if (segment.status === 2) {
                                 stopsCount++;
                             }
                         }
@@ -429,7 +423,6 @@
                         return;
                     }
                     
-                    // Draw route line
                     const path = routePoints.map(p => ({ lat: p.lat, lng: p.lng }));
                     
                     routeLine = new google.maps.Polyline({
@@ -441,7 +434,6 @@
                         map: map
                     });
                     
-                    // Add start marker
                     const startPoint = routePoints[0];
                     const startMarker = new google.maps.Marker({
                         position: { lat: startPoint.lat, lng: startPoint.lng },
@@ -453,7 +445,6 @@
                     });
                     markers.push(startMarker);
                     
-                    // Add end marker
                     const endPoint = routePoints[routePoints.length - 1];
                     const endMarker = new google.maps.Marker({
                         position: { lat: endPoint.lat, lng: endPoint.lng },
@@ -465,14 +456,12 @@
                     });
                     markers.push(endMarker);
                     
-                    // Fit map to route bounds
                     const bounds = new google.maps.LatLngBounds();
                     routePoints.forEach(point => {
                         bounds.extend({ lat: point.lat, lng: point.lng });
                     });
                     map.fitBounds(bounds);
                     
-                    // Update info panel
                     document.getElementById('total-distance').textContent = historyData.distance_sum || '-';
                     document.getElementById('duration').textContent = historyData.move_duration || '-';
                     document.getElementById('top-speed').textContent = historyData.top_speed || '-';
@@ -481,11 +470,11 @@
                     document.getElementById('info-panel').style.display = 'block';
                 }
                 
-                // Initialize
                 document.addEventListener('DOMContentLoaded', function() {
                     initMap();
                     setDefaultDateTimes();
                 });
+            //]]>
             </script>
         </t>
     </template>
