@@ -229,15 +229,25 @@ class TrackingConfig(models.Model):
         created_count = 0
         updated_count = 0
         
-        # GPSWOX returns list of devices directly or in 'items' key
-        if isinstance(devices_data, list):
-            devices_list = devices_data
-        elif isinstance(devices_data, dict):
-            devices_list = devices_data.get('items', devices_data.get('data', []))
-        else:
-            return self._show_error('Invalid Format', f'Unexpected devices data format: {type(devices_data)}')
+        # GPSWOX returns array of groups, each containing devices in 'items'
+        all_devices = []
         
-        if not devices_list:
+        # Extract devices from all groups
+        if isinstance(groups_data, list):
+            for group in groups_data:
+                if isinstance(group, dict) and 'items' in group:
+                    group_title = group.get('title', 'Unknown Group')
+                    group_items = group.get('items', [])
+                    _logger.info(f'Processing group: {group_title} with {len(group_items)} devices')
+                    all_devices.extend(group_items)
+        else:
+            # Fallback for old API format
+            if isinstance(groups_data, dict):
+                all_devices = groups_data.get('items', groups_data.get('data', []))
+            else:
+                return self._show_error('Invalid Format', f'Unexpected devices data format: {type(groups_data)}')
+        
+        if not all_devices:
             return {
                 'type': 'ir.actions.client',
                 'tag': 'display_notification',
@@ -249,9 +259,9 @@ class TrackingConfig(models.Model):
                 }
             }
         
-        _logger.info(f'Processing {len(devices_list)} devices from GPSWOX')
+        _logger.info(f'Processing {len(all_devices)} devices from GPSWOX')
         
-        for device_info in devices_list:
+        for device_info in all_devices:
             try:
                 # Log raw device data for debugging
                 _logger.info(f'Raw device data: {device_info}')
