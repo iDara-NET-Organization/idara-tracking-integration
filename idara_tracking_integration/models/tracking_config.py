@@ -247,41 +247,63 @@ class TrackingConfig(models.Model):
         
         for device_info in devices_list:
             try:
-                # GPSWOX device fields
-                device_id = str(device_info.get('imei') or device_info.get('id', ''))
+                # Log raw device data for debugging
+                _logger.info(f'Raw device data: {device_info}')
+                
+                # GPSWOX device fields - try multiple field names
+                device_id = str(device_info.get('imei') or device_info.get('id') or device_info.get('device_id', ''))
                 if not device_id:
+                    _logger.warning(f'Skipping device without ID: {device_info}')
                     continue
+                
+                # Extract name - GPSWOX uses 'name' field
+                device_name = (device_info.get('name') or 
+                              device_info.get('device_name') or 
+                              device_info.get('label') or 
+                              f'Device {device_id}')
+                
+                _logger.info(f'Processing device: ID={device_id}, Name={device_name}')
                 
                 existing_device = self.env['tracking.device'].search([
                     ('device_id', '=', device_id),
                     ('config_id', '=', self.id)
                 ], limit=1)
                 
-                # Extract position data
+                # Extract position data - GPSWOX uses 'lat' and 'lng'
                 lat = float(device_info.get('lat') or device_info.get('latitude') or 0)
                 lng = float(device_info.get('lng') or device_info.get('longitude') or 0)
                 
+                # Extract speed
+                speed = float(device_info.get('speed') or 0)
+                
+                # Extract status
+                status_raw = device_info.get('status') or device_info.get('online')
+                
                 vals = {
-                    'name': device_info.get('name') or f'Device {device_id}',
+                    'name': device_name,
                     'device_id': device_id,
-                    'imei': device_info.get('imei', ''),
+                    'imei': str(device_info.get('imei') or device_id),
                     'config_id': self.id,
                     'latitude': lat,
                     'longitude': lng,
-                    'speed': float(device_info.get('speed', 0) or 0),
-                    'address': device_info.get('address', ''),
-                    'status': self._map_gpswox_status(device_info.get('status')),
-                    'vehicle_id': device_info.get('plate_number', ''),
-                    'driver_name': device_info.get('driver_name', ''),
+                    'speed': speed,
+                    'address': device_info.get('address') or '',
+                    'status': self._map_gpswox_status(status_raw),
+                    'vehicle_id': device_info.get('plate_number') or device_info.get('vehicle_plate') or '',
+                    'driver_name': device_info.get('driver_name') or device_info.get('driver') or '',
                     'last_update': datetime.now(),
                 }
+                
+                _logger.info(f'Device values to save: {vals}')
                 
                 if existing_device:
                     existing_device.write(vals)
                     updated_count += 1
+                    _logger.info(f'Updated existing device: {device_name}')
                 else:
                     self.env['tracking.device'].create(vals)
                     created_count += 1
+                    _logger.info(f'Created new device: {device_name}')
                     
             except Exception as e:
                 _logger.warning(f'Failed to process device: {e}')
@@ -452,6 +474,37 @@ class TrackingConfig(models.Model):
     def create_demo_devices(self):
         """Create demo devices for testing - separate button"""
         return self._create_demo_devices()
+    
+    def delete_all_devices(self):
+        """Delete all devices for this configuration"""
+        self.ensure_one()
+        
+        device_count = len(self.device_ids)
+        
+        if device_count == 0:
+            return {
+                'type': 'ir.actions.client',
+                'tag': 'display_notification',
+                'params': {
+                    'title': 'No Devices',
+                    'message': 'No devices found to delete.',
+                    'type': 'info',
+                    'sticky': False,
+                }
+            }
+        
+        self.device_ids.unlink()
+        
+        return {
+            'type': 'ir.actions.client',
+            'tag': 'display_notification',
+            'params': {
+                'title': 'Devices Deleted',
+                'message': f'Successfully deleted {device_count} device(s).',
+                'type': 'success',
+                'sticky': False,
+            }
+        }
     
     def _create_demo_devices(self):
         """Create demo devices for testing"""
