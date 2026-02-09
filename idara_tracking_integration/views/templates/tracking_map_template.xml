@@ -117,6 +117,17 @@
                     } else {
                         console.warn('No valid devices to display on map');
                     }
+                    
+                    // Auto-refresh based on configuration
+                    const refreshInterval = <t t-esc="refresh_interval"/>;
+                    console.log(`Auto-refresh enabled: every ${refreshInterval / 1000} seconds`);
+                    
+                    if (refreshInterval > 0) {
+                        setInterval(() => {
+                            console.log('Auto-refreshing device locations...');
+                            location.reload();
+                        }, refreshInterval);
+                    }
                 </script>
             </div>
         </t>

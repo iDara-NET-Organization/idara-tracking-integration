@@ -34,11 +34,13 @@ class TrackingMapController(http.Controller):
         # Get Google Maps API key from configuration
         config = request.env['tracking.config'].sudo().search([('active', '=', True)], limit=1)
         google_maps_key = config.google_maps_api_key if config else ''
+        refresh_interval = config.auto_refresh_interval if config else 30
         
         return request.render('idara_tracking_integration.tracking_map_template', {
             'devices': json.dumps(devices_data),
             'google_maps_key': google_maps_key,
             'device_count': len(devices_data),
+            'refresh_interval': refresh_interval * 1000,  # Convert to milliseconds
         })
     
     @http.route('/idara_tracking/devices/json', type='json', auth='user')

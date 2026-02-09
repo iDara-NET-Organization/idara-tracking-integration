@@ -14,6 +14,7 @@ class TrackingConfig(models.Model):
     username = fields.Char(string='Username')
     password = fields.Char(string='Password')
     google_maps_api_key = fields.Char(string='Google Maps API Key', help='Your Google Maps JavaScript API key for map visualization')
+    auto_refresh_interval = fields.Integer(string='Map Auto Refresh (seconds)', default=30, help='How often to refresh device locations on the map (in seconds)')
     active = fields.Boolean(string='Active', default=True)
     device_ids = fields.One2many('tracking.device', 'config_id', string='Devices')
     device_count = fields.Integer(string='Device Count', compute='_compute_device_count')
@@ -96,6 +97,220 @@ class TrackingConfig(models.Model):
             return self._show_error('Error', f'Test failed: {str(e)[:200]}')
     
     def fetch_devices_from_api(self):
+        """Fetch all devices from the tracking API - GPSWOX Compatible"""
+        self.ensure_one()
+        
+        # Validate configuration
+        if not self.api_url:
+            return self._show_error('Configuration Error', 'API URL is required.')
+        
+        if not self.username or not self.password:
+            return self._show_error('Configuration Error', 'Username and Password are required for GPSWOX API.')
+        
+        try:
+            import requests
+            import json
+            from datetime import datetime
+            import logging
+            
+            _logger = logging.getLogger(__name__)
+            
+            # Step 1: Login to get user_api_hash
+            login_url = self.api_url.strip()
+            if not login_url.startswith('http'):
+                login_url = f'https://{login_url}'
+            if not login_url.endswith('/api/login'):
+                login_url = f'{login_url}/api/login' if login_url.endswith('/') else f'{login_url}/api/login'
+            
+            _logger.info(f'Logging in to GPSWOX API: {login_url}')
+            
+            login_data = {
+                'email': self.username,
+                'password': self.password
+            }
+            
+            login_response = requests.post(login_url, data=login_data, timeout=30)
+            
+            _logger.info(f'Login Response Status: {login_response.status_code}')
+            _logger.info(f'Login Response: {login_response.text[:500]}')
+            
+            if login_response.status_code != 200:
+                return self._show_error(
+                    'Login Failed',
+                    f'Could not login to GPSWOX. Status: {login_response.status_code}\nResponse: {login_response.text[:200]}'
+                )
+            
+            try:
+                login_result = login_response.json()
+            except:
+                return self._show_error('Invalid Login Response', f'Login response is not JSON: {login_response.text[:200]}')
+            
+            # Check login status
+            if login_result.get('status') != 1:
+                return self._show_error(
+                    'Authentication Failed',
+                    f'GPSWOX login failed. Please check your username and password.\nResponse: {login_result}'
+                )
+            
+            user_api_hash = login_result.get('user_api_hash')
+            if not user_api_hash:
+                return self._show_error('API Hash Missing', f'Could not get user_api_hash from login response: {login_result}')
+            
+            _logger.info(f'Successfully logged in. Got user_api_hash')
+            
+            # Step 2: Get devices using user_api_hash
+            devices_url = self.api_url.strip()
+            if not devices_url.startswith('http'):
+                devices_url = f'https://{devices_url}'
+            if not devices_url.endswith('/api/get_devices'):
+                devices_url = f'{devices_url}/api/get_devices' if devices_url.endswith('/') else f'{devices_url}/api/get_devices'
+            
+            devices_params = {
+                'user_api_hash': user_api_hash
+            }
+            
+            _logger.info(f'Fetching devices from: {devices_url}')
+            
+            devices_response = requests.get(devices_url, params=devices_params, timeout=30)
+            
+            _logger.info(f'Devices Response Status: {devices_response.status_code}')
+            _logger.info(f'Devices Response: {devices_response.text[:1000]}')
+            
+            if devices_response.status_code != 200:
+                return self._show_error(
+                    'Failed to Get Devices',
+                    f'Could not fetch devices. Status: {devices_response.status_code}\nResponse: {devices_response.text[:200]}'
+                )
+            
+            try:
+                devices_data = devices_response.json()
+            except:
+                return self._show_error('Invalid Devices Response', f'Devices response is not JSON: {devices_response.text[:500]}')
+            
+            # Process devices
+            return self._process_gpswox_devices(devices_data)
+            
+        except ImportError as e:
+            return self._show_error(
+                'Missing Library',
+                f'Python requests library not installed: {str(e)}'
+            )
+        except requests.exceptions.ConnectionError as e:
+            return self._show_error(
+                'Connection Error', 
+                f'Cannot connect to {self.api_url}\nError: {str(e)[:200]}'
+            )
+        except requests.exceptions.Timeout:
+            return self._show_error(
+                'Timeout', 
+                f'Request timed out. Server not responding.'
+            )
+        except Exception as e:
+            import traceback
+            _logger.error(traceback.format_exc())
+            return self._show_error(
+                'Unexpected Error',
+                f'{type(e).__name__}: {str(e)[:300]}'
+            )
+    
+    def _process_gpswox_devices(self, devices_data):
+        """Process GPSWOX devices response"""
+        from datetime import datetime
+        import logging
+        
+        _logger = logging.getLogger(__name__)
+        
+        created_count = 0
+        updated_count = 0
+        
+        # GPSWOX returns list of devices directly or in 'items' key
+        if isinstance(devices_data, list):
+            devices_list = devices_data
+        elif isinstance(devices_data, dict):
+            devices_list = devices_data.get('items', devices_data.get('data', []))
+        else:
+            return self._show_error('Invalid Format', f'Unexpected devices data format: {type(devices_data)}')
+        
+        if not devices_list:
+            return {
+                'type': 'ir.actions.client',
+                'tag': 'display_notification',
+                'params': {
+                    'title': 'No Devices Found',
+                    'message': 'GPSWOX API returned no devices. Please add devices in your GPSWOX panel first.',
+                    'type': 'warning',
+                    'sticky': True,
+                }
+            }
+        
+        _logger.info(f'Processing {len(devices_list)} devices from GPSWOX')
+        
+        for device_info in devices_list:
+            try:
+                # GPSWOX device fields
+                device_id = str(device_info.get('imei') or device_info.get('id', ''))
+                if not device_id:
+                    continue
+                
+                existing_device = self.env['tracking.device'].search([
+                    ('device_id', '=', device_id),
+                    ('config_id', '=', self.id)
+                ], limit=1)
+                
+                # Extract position data
+                lat = float(device_info.get('lat') or device_info.get('latitude') or 0)
+                lng = float(device_info.get('lng') or device_info.get('longitude') or 0)
+                
+                vals = {
+                    'name': device_info.get('name') or f'Device {device_id}',
+                    'device_id': device_id,
+                    'imei': device_info.get('imei', ''),
+                    'config_id': self.id,
+                    'latitude': lat,
+                    'longitude': lng,
+                    'speed': float(device_info.get('speed', 0) or 0),
+                    'address': device_info.get('address', ''),
+                    'status': self._map_gpswox_status(device_info.get('status')),
+                    'vehicle_id': device_info.get('plate_number', ''),
+                    'driver_name': device_info.get('driver_name', ''),
+                    'last_update': datetime.now(),
+                }
+                
+                if existing_device:
+                    existing_device.write(vals)
+                    updated_count += 1
+                else:
+                    self.env['tracking.device'].create(vals)
+                    created_count += 1
+                    
+            except Exception as e:
+                _logger.warning(f'Failed to process device: {e}')
+                continue
+        
+        return {
+            'type': 'ir.actions.client',
+            'tag': 'display_notification',
+            'params': {
+                'title': 'GPSWOX Devices Synced',
+                'message': f'Total: {created_count + updated_count} devices\nCreated: {created_count} | Updated: {updated_count}',
+                'type': 'success',
+                'sticky': False,
+            }
+        }
+    
+    def _map_gpswox_status(self, gpswox_status):
+        """Map GPSWOX status to our status values"""
+        if not gpswox_status:
+            return 'offline'
+        
+        status_map = {
+            'online': 'online',
+            'offline': 'offline',
+            'moving': 'moving',
+            'stopped': 'idle',
+        }
+        
+        return status_map.get(str(gpswox_status).lower(), 'offline')
         """Fetch all devices from the tracking API"""
         self.ensure_one()
         

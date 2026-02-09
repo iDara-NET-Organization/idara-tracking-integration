@@ -40,6 +40,7 @@
                     <group>
                         <group string="Google Maps">
                             <field name="google_maps_api_key" password="True" placeholder="Enter your Google Maps API key"/>
+                            <field name="auto_refresh_interval"/>
                         </group>
                         <group>
                             <field name="active"/>
