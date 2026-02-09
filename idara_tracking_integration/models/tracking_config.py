@@ -37,69 +37,139 @@ class TrackingConfig(models.Model):
     
     def test_connection(self):
         self.ensure_one()
-        # Add your API connection test logic here
-        return {
-            'type': 'ir.actions.client',
-            'tag': 'display_notification',
-            'params': {
-                'title': 'Connection Test',
-                'message': 'Connection successful!',
-                'type': 'success',
-                'sticky': False,
-            }
-        }
+        
+        if not self.api_url:
+            return self._show_error('Configuration Error', 'API URL is required')
+        
+        import requests
+        import logging
+        
+        _logger = logging.getLogger(__name__)
+        
+        try:
+            headers = {'Content-Type': 'application/json'}
+            auth = None
+            
+            if self.api_key:
+                headers['Authorization'] = f'Bearer {self.api_key}'
+            elif self.username and self.password:
+                auth = (self.username, self.password)
+            
+            url = self.api_url
+            if not url.startswith('http'):
+                url = f'https://{url}'
+            
+            _logger.info(f'Testing connection to: {url}')
+            
+            response = requests.get(url, headers=headers, auth=auth, timeout=10)
+            
+            if response.status_code == 200:
+                return {
+                    'type': 'ir.actions.client',
+                    'tag': 'display_notification',
+                    'params': {
+                        'title': 'Connection Successful',
+                        'message': f'Successfully connected to {url}',
+                        'type': 'success',
+                        'sticky': False,
+                    }
+                }
+            elif response.status_code == 401:
+                return self._show_error('Authentication Failed', 'Invalid credentials. Check your API Key or Username/Password.')
+            else:
+                return {
+                    'type': 'ir.actions.client',
+                    'tag': 'display_notification',
+                    'params': {
+                        'title': 'Connection Warning',
+                        'message': f'Connected but got status {response.status_code}. Check API documentation.',
+                        'type': 'warning',
+                        'sticky': True,
+                    }
+                }
+                
+        except requests.exceptions.ConnectionError:
+            return self._show_error('Connection Failed', f'Cannot reach {self.api_url}. Check URL and internet connection.')
+        except requests.exceptions.Timeout:
+            return self._show_error('Timeout', 'Connection timed out after 10 seconds.')
+        except Exception as e:
+            return self._show_error('Error', f'Test failed: {str(e)[:200]}')
     
     def fetch_devices_from_api(self):
         """Fetch all devices from the tracking API"""
         self.ensure_one()
+        
+        # Validate configuration
+        if not self.api_url:
+            return self._show_error('Configuration Error', 'API URL is required. Please configure it first.')
+        
         import requests
         import json
         from datetime import datetime
+        import logging
+        
+        _logger = logging.getLogger(__name__)
         
         try:
             # Prepare API request
-            headers = {
-                'Authorization': f'Bearer {self.api_key}',
-                'Content-Type': 'application/json'
-            }
+            headers = {'Content-Type': 'application/json'}
             
-            # If no API key, try basic auth
-            if not self.api_key and self.username:
+            # Add authentication
+            auth = None
+            if self.api_key:
+                headers['Authorization'] = f'Bearer {self.api_key}'
+            elif self.username and self.password:
                 auth = (self.username, self.password)
-            else:
-                auth = None
             
-            url = f'{self.api_url}/devices'
+            # Build URL
+            url = self.api_url
+            if not url.startswith('http'):
+                url = f'https://{url}'
+            if not url.endswith('/devices'):
+                url = f'{url}/devices' if url.endswith('/') else f'{url}/devices'
+            
+            _logger.info(f'Fetching devices from: {url}')
             
             # Make API request
             response = requests.get(url, headers=headers, auth=auth, timeout=30)
             
+            _logger.info(f'API Response Status: {response.status_code}')
+            _logger.info(f'API Response Headers: {response.headers}')
+            _logger.info(f'API Response Text (first 500 chars): {response.text[:500]}')
+            
+            # Check response status first
+            if response.status_code == 401:
+                return self._show_error('Authentication Error', 'Invalid API credentials. Check your API Key or Username/Password.')
+            elif response.status_code == 404:
+                return self._show_error('Not Found', f'API endpoint not found: {url}. Please check your API URL.')
+            elif response.status_code >= 400:
+                return self._show_error('API Error', f'API returned error {response.status_code}: {response.text[:200]}')
+            
             # Check if response is empty
-            if not response.text:
-                raise ValueError('API returned empty response')
+            if not response.text or response.text.strip() == '':
+                return self._show_error('Empty Response', 'API returned empty response. Please check if there are any devices in your tracking system.')
             
-            # Check response status
-            response.raise_for_status()
-            
-            # Parse JSON
+            # Try to parse JSON
             try:
                 devices_data = response.json()
-            except json.JSONDecodeError:
-                raise ValueError(f'Invalid JSON response. Response text: {response.text[:200]}')
+            except json.JSONDecodeError as e:
+                return self._show_error(
+                    'Invalid JSON', 
+                    f'API returned invalid JSON. Response: {response.text[:200]}... Error: {str(e)}'
+                )
             
             # Process devices
             return self._process_api_devices(devices_data)
             
-        except requests.exceptions.ConnectionError:
-            return self._show_error('Connection Error', 'Could not connect to API. Check your API URL.')
+        except requests.exceptions.ConnectionError as e:
+            return self._show_error('Connection Error', f'Could not connect to API at {self.api_url}. Check your internet connection and API URL. Error: {str(e)[:100]}')
         except requests.exceptions.Timeout:
-            return self._show_error('Timeout Error', 'API request timed out after 30 seconds.')
-        except requests.exceptions.HTTPError as e:
-            return self._show_error('HTTP Error', f'API returned error: {e.response.status_code} - {e.response.text[:200]}')
-        except ValueError as e:
-            return self._show_error('Data Error', str(e))
+            return self._show_error('Timeout Error', f'API request timed out after 30 seconds. The server at {self.api_url} is not responding.')
+        except requests.exceptions.RequestException as e:
+            return self._show_error('Request Error', f'Failed to make API request: {str(e)[:200]}')
         except Exception as e:
-            return self._show_error('Unexpected Error', f'An error occurred: {str(e)}')
+            _logger.exception('Unexpected error in fetch_devices_from_api')
+            return self._show_error('Unexpected Error', f'An unexpected error occurred: {str(e)[:200]}')
     
     def create_demo_devices(self):
         """Create demo devices for testing - separate button"""
