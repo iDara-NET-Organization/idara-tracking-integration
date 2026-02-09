@@ -35,18 +35,15 @@
     </div>
     <div id="map"></div>
     
-    <script>
-    var ODOO_CSRF = '<t t-esc="request.csrf_token()"/>';
+    <script type="text/javascript">
+        var ODOO_CSRF = '<t t-esc="request.csrf_token()"/>';
+        var DEVICES = <t t-raw="devices_json"/>;
+        var TZ_OFFSET = <t t-esc="timezone_offset"/>;
+        var REFRESH_MS = <t t-esc="refresh_interval"/>;
     </script>
     
-    <script>
-    //<![CDATA[
+    <script type="text/javascript">
     (function() {
-        // ✅ الحل الصحيح من ChatGPT
-        var DEVICES = JSON.parse('<t t-esc="devices_json"/>');
-        var TZ_OFFSET = parseInt('<t t-esc="timezone_offset"/>');
-        var REFRESH_MS = parseInt('<t t-esc="refresh_interval"/>');
-        
         var map, markers = {};
         
         console.log('✅ Loaded', DEVICES.length, 'devices');
@@ -161,7 +158,6 @@
         
         setTimeout(init, 100);
     })();
-    //]]>
     </script>
 </body>
 </html>
