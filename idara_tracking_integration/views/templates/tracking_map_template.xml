@@ -1,232 +1,138 @@
 <?xml version="1.0" encoding="utf-8"?>
 <odoo>
     <template id="tracking_map_template" name="Tracking Map">
-        <t t-call="web.layout">
-            <t t-set="head_website">
-                <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+        <t t-call="web.html_container">
+            <t t-set="head">
+                <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
                 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
                 <style>
                     body { margin: 0; padding: 0; overflow: hidden; }
-                    #tracking-header {
-                        background: linear-gradient(135deg, #dc3545, #c82333);
-                        color: white; padding: 15px 20px; height: 70px;
-                        display: flex; align-items: center; justify-content: space-between;
-                    }
-                    #tracking-map { height: calc(100vh - 70px); width: 100%; }
-                    .device-count-badge { background: #28a745; color: white; padding: 8px 15px; border-radius: 15px; font-weight: bold; }
-                    .device-name-label {
-                        background: white; padding: 4px 8px; border-radius: 3px;
-                        font-size: 11px; font-weight: bold; box-shadow: 0 1px 4px rgba(0,0,0,0.3);
-                        margin-top: -8px; white-space: nowrap;
-                    }
+                    #header { background: linear-gradient(135deg, #dc3545, #c82333); color: white; padding: 15px 20px; height: 70px; display: flex; align-items: center; justify-content: space-between; }
+                    #map { height: calc(100vh - 70px); width: 100%; }
+                    .device-count { background: #28a745; color: white; padding: 8px 15px; border-radius: 15px; font-weight: bold; }
+                    .device-label { background: white; padding: 4px 8px; border-radius: 3px; font-size: 11px; font-weight: bold; box-shadow: 0 1px 4px rgba(0,0,0,0.3); margin-top: -8px; }
                     .leaflet-marker-icon { transition: all 0.8s ease-in-out !important; }
                 </style>
             </t>
             
-            <div id="tracking-header">
+            <div id="header">
                 <div style="display:flex;align-items:center">
                     <img src="/idara_tracking_integration/static/src/img/logo.png" style="height:45px;margin-right:15px"/>
                     <span style="font-size:22px">🗺️ Live Device Tracking</span>
                 </div>
-                <span class="device-count-badge" id="tracking-device-count"><t t-esc="device_count"/> Devices</span>
+                <span class="device-count" id="device-count"><t t-esc="device_count or 0"/> Devices</span>
             </div>
-            <div id="tracking-map"></div>
             
-            <script type="text/javascript">
-            //<![CDATA[
-            (function() {
-                // ✅ الحل الصحيح: JSON.parse مع t-esc
-                var TRACKING_DEVICES = JSON.parse('<t t-esc="devices_json"/>');
-                var TRACKING_TZ_OFFSET = parseInt('<t t-esc="timezone_offset"/>');
-                var TRACKING_REFRESH_MS = parseInt('<t t-esc="refresh_interval"/>');
+            <div id="map"></div>
+            
+            <script>
+            var devicesData = JSON.parse('<t t-esc="devices_json"/>');
+            var tzOff = parseInt('<t t-esc="timezone_offset"/>');
+            var refInt = parseInt('<t t-esc="refresh_interval"/>');
+            
+            var map, markers = {};
+            
+            console.log('✅ Loaded', devicesData.length, 'devices');
+            
+            function getCol(s) {
+                return s === 'online' ? '#28a745' : s === 'moving' ? '#007bff' : s === 'idle' ? '#ffc107' : '#dc3545';
+            }
+            
+            function getBdg(s) {
+                return s === 'online' ? '🟢 Online' : s === 'moving' ? '🔵 Moving' : s === 'idle' ? '🟡 Idle' : '🔴 Offline';
+            }
+            
+            function adjTime(t) {
+                if (!t) return 'N/A';
+                try {
+                    var d = new Date(t + 'Z');
+                    d.setHours(d.getHours() + tzOff);
+                    return d.toLocaleString();
+                } catch(e) { return t; }
+            }
+            
+            function init() {
+                if (typeof L === 'undefined') { setTimeout(init, 500); return; }
                 
-                var trackingMap = null;
-                var trackingMarkers = {};
+                console.log('🗺️ Initializing map...');
+                map = L.map('map').setView([24.7136, 46.6753], 6);
+                L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                    attribution: '© OpenStreetMap'
+                }).addTo(map);
                 
-                console.log('✅ Devices loaded:', TRACKING_DEVICES.length);
-                
-                function getDeviceColor(status) {
-                    switch(status) {
-                        case 'online': return '#28a745';
-                        case 'moving': return '#007bff';
-                        case 'idle': return '#ffc107';
-                        default: return '#dc3545';
-                    }
-                }
-                
-                function getStatusBadge(status) {
-                    switch(status) {
-                        case 'online': return '🟢 Online';
-                        case 'moving': return '🔵 Moving';
-                        case 'idle': return '🟡 Idle';
-                        default: return '🔴 Offline';
-                    }
-                }
-                
-                function adjustTimezone(dateStr) {
-                    if (!dateStr) return 'N/A';
-                    try {
-                        var date = new Date(dateStr + 'Z');
-                        date.setHours(date.getHours() + TRACKING_TZ_OFFSET);
-                        return date.toLocaleString();
-                    } catch(e) {
-                        return dateStr;
-                    }
-                }
-                
-                function initializeMap() {
-                    if (typeof L === 'undefined') {
-                        console.log('⏳ Waiting for Leaflet...');
-                        setTimeout(initializeMap, 500);
-                        return;
-                    }
-                    
-                    console.log('🗺️ Initializing map...');
-                    
-                    trackingMap = L.map('tracking-map').setView([24.7136, 46.6753], 6);
-                    
-                    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-                        attribution: '© OpenStreetMap contributors'
-                    }).addTo(trackingMap);
-                    
-                    var mapBounds = L.latLngBounds();
-                    var markersAdded = 0;
-                    
-                    TRACKING_DEVICES.forEach(function(device) {
-                        var marker = createDeviceMarker(device);
-                        if (marker) {
-                            mapBounds.extend(marker.getLatLng());
-                            markersAdded++;
-                        }
-                    });
-                    
-                    if (markersAdded > 0) {
-                        trackingMap.fitBounds(mapBounds, {padding: [50, 50]});
-                    }
-                    
-                    console.log('✅ Map ready with', markersAdded, 'markers');
-                    
-                    if (TRACKING_REFRESH_MS > 0) {
-                        setInterval(refreshDevicePositions, TRACKING_REFRESH_MS);
-                    }
-                }
-                
-                function createDeviceMarker(device) {
-                    var latitude = parseFloat(device.latitude);
-                    var longitude = parseFloat(device.longitude);
-                    
-                    if (!latitude || !longitude || isNaN(latitude) || isNaN(longitude)) {
-                        return null;
-                    }
-                    
-                    var markerColor = getDeviceColor(device.status);
-                    var deviceName = device.name || device.device_id || 'Unknown';
-                    
-                    var markerHtml = 
-                        '<div style="position:relative">' +
-                        '<div style="background:' + markerColor + ';width:24px;height:24px;border-radius:50%;border:3px solid white;box-shadow:0 2px 6px rgba(0,0,0,0.4)"></div>' +
-                        '<div class="device-name-label">' + deviceName + '</div>' +
-                        '</div>';
-                    
-                    var marker = L.marker([latitude, longitude], {
-                        icon: L.divIcon({
-                            className: 'custom-device-marker',
-                            html: markerHtml,
-                            iconSize: [120, 40],
-                            iconAnchor: [60, 32]
-                        })
-                    }).addTo(trackingMap);
-                    
-                    var popupContent =
-                        '<div style="min-width:220px;font-family:Arial">' +
-                        '<h3 style="margin:0 0 12px 0;color:#dc3545;font-size:16px">📍 ' + deviceName + '</h3>' +
-                        '<p style="margin:6px 0;font-size:13px"><b>Device ID:</b> ' + (device.device_id || 'N/A') + '</p>' +
-                        '<p style="margin:6px 0;font-size:13px"><b>Status:</b> ' + getStatusBadge(device.status) + '</p>' +
-                        '<p style="margin:6px 0;font-size:13px"><b>Speed:</b> ' + (device.speed || 0) + ' km/h</p>' +
-                        '<p style="margin:6px 0;font-size:13px"><b>Driver:</b> ' + (device.driver_name || 'N/A') + '</p>' +
-                        '<p style="margin:6px 0;font-size:13px"><b>Vehicle:</b> ' + (device.vehicle_id || 'N/A') + '</p>' +
-                        '<p style="margin:6px 0;font-size:13px"><b>Location:</b> ' + (device.address || 'Unknown') + '</p>' +
-                        '<p style="margin:6px 0;font-size:11px;color:#666">Last update: ' + adjustTimezone(device.last_update) + '</p>' +
-                        '</div>';
-                    
-                    marker.bindPopup(popupContent);
-                    trackingMarkers[device.id] = marker;
-                    return marker;
-                }
-                
-                function updateDeviceMarker(device) {
-                    var latitude = parseFloat(device.latitude);
-                    var longitude = parseFloat(device.longitude);
-                    
-                    if (!latitude || !longitude || isNaN(latitude) || isNaN(longitude)) {
-                        return;
-                    }
-                    
-                    var marker = trackingMarkers[device.id];
-                    
-                    if (marker) {
-                        marker.setLatLng(L.latLng(latitude, longitude));
-                        
-                        var markerColor = getDeviceColor(device.status);
-                        var deviceName = device.name || device.device_id || 'Unknown';
-                        
-                        var markerHtml =
-                            '<div style="position:relative">' +
-                            '<div style="background:' + markerColor + ';width:24px;height:24px;border-radius:50%;border:3px solid white;box-shadow:0 2px 6px rgba(0,0,0,0.4)"></div>' +
-                            '<div class="device-name-label">' + deviceName + '</div>' +
-                            '</div>';
-                        
-                        marker.setIcon(L.divIcon({
-                            className: 'custom-device-marker',
-                            html: markerHtml,
-                            iconSize: [120, 40],
-                            iconAnchor: [60, 32]
-                        }));
-                    } else {
-                        createDeviceMarker(device);
-                    }
-                }
-                
-                function refreshDevicePositions() {
-                    fetch('/idara_tracking/devices/json', {
-                        method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/json',
-                            'X-CSRF-Token': odoo.csrf_token
-                        },
-                        body: JSON.stringify({
-                            jsonrpc: '2.0',
-                            method: 'call',
-                            params: {},
-                            id: new Date().getTime()
-                        })
-                    })
-                    .then(function(response) {
-                        return response.json();
-                    })
-                    .then(function(data) {
-                        var devices = data.result;
-                        
-                        if (!devices || !Array.isArray(devices)) {
-                            return;
-                        }
-                        
-                        document.getElementById('tracking-device-count').textContent = devices.length + ' Devices';
-                        
-                        devices.forEach(function(device) {
-                            updateDeviceMarker(device);
-                        });
-                    })
-                    .catch(function(error) {
-                        console.error('Refresh error:', error);
-                    });
-                }
-                
-                window.addEventListener('load', function() {
-                    setTimeout(initializeMap, 100);
+                var bds = L.latLngBounds();
+                devicesData.forEach(function(d) {
+                    var m = addMrk(d);
+                    if (m) bds.extend(m.getLatLng());
                 });
-            })();
-            //]]>
+                
+                if (devicesData.length > 0) map.fitBounds(bds, {padding: [50, 50]});
+                console.log('✅ Map ready!');
+                
+                if (refInt > 0) setInterval(refr, refInt);
+            }
+            
+            function addMrk(d) {
+                var la = parseFloat(d.latitude), ln = parseFloat(d.longitude);
+                if (!la || !ln) return null;
+                
+                var col = getCol(d.status), nm = d.name || d.device_id || 'Unknown';
+                
+                var m = L.marker([la, ln], {
+                    icon: L.divIcon({
+                        className: '',
+                        html: '<div style="position:relative"><div style="background:' + col + ';width:24px;height:24px;border-radius:50%;border:3px solid white;box-shadow:0 2px 6px rgba(0,0,0,0.4)"></div><div class="device-label">' + nm + '</div></div>',
+                        iconSize: [120, 40],
+                        iconAnchor: [60, 32]
+                    })
+                }).addTo(map);
+                
+                m.bindPopup(
+                    '<div style="min-width:220px"><h3 style="margin:0 0 12px 0;color:#dc3545">📍 ' + nm + '</h3>' +
+                    '<p style="margin:6px 0"><b>Device:</b> ' + (d.device_id || 'N/A') + '</p>' +
+                    '<p style="margin:6px 0"><b>Status:</b> ' + getBdg(d.status) + '</p>' +
+                    '<p style="margin:6px 0"><b>Speed:</b> ' + (d.speed || 0) + ' km/h</p>' +
+                    '<p style="margin:6px 0"><b>Driver:</b> ' + (d.driver_name || 'N/A') + '</p>' +
+                    '<p style="margin:6px 0"><b>Location:</b> ' + (d.address || 'Unknown') + '</p>' +
+                    '<p style="margin:6px 0;font-size:11px;color:#666">Last: ' + adjTime(d.last_update) + '</p></div>'
+                );
+                
+                markers[d.id] = m;
+                return m;
+            }
+            
+            function refr() {
+                fetch('/idara_tracking/devices/json', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRF-Token': odoo.csrf_token
+                    },
+                    body: JSON.stringify({jsonrpc: '2.0', method: 'call', params: {}, id: Date.now()})
+                })
+                .then(function(r) { return r.json(); })
+                .then(function(dt) {
+                    var ds = dt.result;
+                    if (!ds || !Array.isArray(ds)) return;
+                    
+                    document.getElementById('device-count').textContent = ds.length + ' Devices';
+                    ds.forEach(function(d) {
+                        var m = markers[d.id];
+                        if (m) {
+                            m.setLatLng([parseFloat(d.latitude), parseFloat(d.longitude)]);
+                            var col = getCol(d.status), nm = d.name || d.device_id || 'Unknown';
+                            m.setIcon(L.divIcon({
+                                className: '',
+                                html: '<div style="position:relative"><div style="background:' + col + ';width:24px;height:24px;border-radius:50%;border:3px solid white;box-shadow:0 2px 6px rgba(0,0,0,0.4)"></div><div class="device-label">' + nm + '</div></div>',
+                                iconSize: [120, 40],
+                                iconAnchor: [60, 32]
+                            }));
+                        } else { addMrk(d); }
+                    });
+                });
+            }
+            
+            setTimeout(init, 100);
             </script>
         </t>
     </template>
