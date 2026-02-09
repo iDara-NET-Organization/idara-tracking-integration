@@ -9,9 +9,7 @@
                 <header>
                     <button name="test_connection" string="Test Connection" type="object" class="btn-primary"/>
                     <button name="fetch_devices_from_api" string="Fetch Devices from API" type="object" class="btn-success"/>
-                    <button name="create_demo_devices" string="Create Demo Devices" type="object" class="btn-warning"/>
                     <button name="view_api_response" string="🔍 Debug API Response" type="object" class="btn-info"/>
-                    <button name="delete_all_devices" string="Delete All Devices" type="object" class="btn-danger" confirm="Are you sure you want to delete all devices?"/>
                 </header>
                 <sheet>
                     <div class="oe_button_box" name="button_box">
