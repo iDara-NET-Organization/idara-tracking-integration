@@ -1,298 +1,149 @@
 <?xml version="1.0" encoding="utf-8"?>
 <odoo>
     <template id="tracking_map_template" name="Tracking Map">
-        <t t-set="head">
-            <t t-if="map_provider == 'google' and google_maps_key">
-                <script t-att-src="'https://maps.googleapis.com/maps/api/js?key=' + google_maps_key"></script>
-            </t>
-            <t t-else="">
+        <t t-call="web.html_container">
+            <t t-set="head">
                 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
                 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+                <style>
+                    body { margin: 0; padding: 0; overflow: hidden; }
+                    #header { background: linear-gradient(135deg, #dc3545, #c82333); color: white; padding: 15px 20px; height: 70px; display: flex; align-items: center; justify-content: space-between; }
+                    #map { height: calc(100vh - 70px); width: 100%; }
+                    .device-count { background: #28a745; color: white; padding: 8px 15px; border-radius: 15px; font-weight: bold; }
+                    .device-label { background: white; padding: 4px 8px; border-radius: 3px; font-size: 11px; font-weight: bold; box-shadow: 0 1px 4px rgba(0,0,0,0.3); margin-top: -8px; }
+                    .leaflet-marker-icon { transition: all 0.8s ease-in-out !important; }
+                </style>
             </t>
             
-            <style>
-                body { margin: 0; padding: 0; overflow: hidden; font-family: Arial, sans-serif; }
-                #header {
-                    background: linear-gradient(135deg, #dc3545, #c82333);
-                    color: white;
-                    padding: 15px 20px;
-                    height: 70px;
-                    display: flex;
-                    align-items: center;
-                    justify-content: space-between;
-                }
-                .header-left { display: flex; align-items: center; }
-                #header img { height: 45px; margin-right: 15px; }
-                #header h1 { margin: 0; font-size: 22px; }
-                .device-count { background: #28a745; color: white; padding: 8px 15px; border-radius: 15px; font-weight: bold; }
-                #map { height: calc(100vh - 70px); width: 100%; }
-                .device-label {
-                    background: white;
-                    padding: 4px 8px;
-                    border-radius: 3px;
-                    font-size: 11px;
-                    font-weight: bold;
-                    white-space: nowrap;
-                    box-shadow: 0 1px 4px rgba(0,0,0,0.3);
-                    border: 1px solid #ddd;
-                    margin-top: -8px;
-                    text-align: center;
-                }
-                .leaflet-marker-icon { transition: all 0.8s ease-in-out !important; }
-            </style>
-        </t>
-        
-        <t t-call="web.layout">
-            <t t-set="head_website" t-value="head"/>
-            
             <div id="header">
-                <div class="header-left">
-                    <img src="/idara_tracking_integration/static/src/img/logo.png" alt="Idara"/>
-                    <h1>🗺️ Live Device Tracking</h1>
+                <div style="display:flex;align-items:center">
+                    <img src="/idara_tracking_integration/static/src/img/logo.png" style="height:45px;margin-right:15px"/>
+                    <span style="font-size:22px">🗺️ Live Device Tracking</span>
                 </div>
                 <span class="device-count" id="device-count"><t t-esc="device_count or 0"/> Devices</span>
             </div>
             
             <div id="map"></div>
             
-            <script type="text/javascript">
-            //<![CDATA[
-                var mapProvider = '<t t-esc="map_provider or 'osm'"/>';
-                var googleKey = '<t t-esc="google_maps_key or ''"/>';
-                var devices = <t t-raw="devices"/>;
-                var refreshMs = <t t-esc="refresh_interval"/>;
-                var tzOffset = <t t-esc="timezone_offset or 3"/>;
+            <script>
+            var devicesData = <t t-raw="devices"/>;
+            var tzOff = parseInt('<t t-esc="timezone_offset or 3"/>');
+            var refInt = parseInt('<t t-esc="refresh_interval"/>');
+            
+            var map, markers = {};
+            
+            function getCol(s) {
+                return s === 'online' ? '#28a745' : s === 'moving' ? '#007bff' : s === 'idle' ? '#ffc107' : '#dc3545';
+            }
+            
+            function getBdg(s) {
+                return s === 'online' ? '🟢 Online' : s === 'moving' ? '🔵 Moving' : s === 'idle' ? '🟡 Idle' : '🔴 Offline';
+            }
+            
+            function adjTime(t) {
+                if (!t) return 'N/A';
+                try {
+                    var d = new Date(t + 'Z');
+                    d.setHours(d.getHours() + tzOff);
+                    return d.toLocaleString();
+                } catch(e) { return t; }
+            }
+            
+            function init() {
+                console.log('Init map, devices:', devicesData.length);
                 
-                var map, markers = {};
-                
-                function getColor(status) {
-                    var colors = {
-                        'online': '#28a745',
-                        'moving': '#007bff',
-                        'idle': '#ffc107',
-                        'offline': '#dc3545'
-                    };
-                    return colors[status] || '#dc3545';
+                if (typeof L === 'undefined') {
+                    setTimeout(init, 500);
+                    return;
                 }
                 
-                function getStatusBadge(status) {
-                    var badges = {
-                        'online': '🟢 Online',
-                        'moving': '🔵 Moving',
-                        'idle': '🟡 Idle',
-                        'offline': '🔴 Offline'
-                    };
-                    return badges[status] || '🔴 Offline';
+                map = L.map('map').setView([24.7136, 46.6753], 6);
+                L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                    attribution: '© OpenStreetMap'
+                }).addTo(map);
+                
+                var bds = L.latLngBounds();
+                devicesData.forEach(function(d) {
+                    var m = addMrk(d);
+                    if (m) bds.extend(m.getLatLng());
+                });
+                
+                if (devicesData.length > 0) {
+                    map.fitBounds(bds, {padding: [50, 50]});
                 }
                 
-                function adjustTime(dateStr) {
-                    if (!dateStr) return 'N/A';
-                    try {
-                        var d = new Date(dateStr + 'Z');
-                        d.setHours(d.getHours() + tzOffset);
-                        return d.toLocaleString('en-US', { 
-                            year: 'numeric', month: '2-digit', day: '2-digit',
-                            hour: '2-digit', minute: '2-digit'
-                        });
-                    } catch(e) {
-                        return dateStr;
-                    }
+                if (refInt > 0) {
+                    setInterval(refr, refInt);
                 }
+            }
+            
+            function addMrk(d) {
+                var la = parseFloat(d.latitude);
+                var ln = parseFloat(d.longitude);
+                if (!la || !ln) return null;
                 
-                function initMap() {
-                    console.log('Map Provider:', mapProvider);
-                    
-                    if (mapProvider === 'google' &amp;&amp; googleKey &amp;&amp; typeof google !== 'undefined') {
-                        initGoogleMap();
-                    } else {
-                        initLeafletMap();
-                    }
-                }
+                var col = getCol(d.status);
+                var nm = d.name || d.device_id || 'Unknown';
                 
-                function initGoogleMap() {
-                    console.log('Loading Google Maps...');
-                    map = new google.maps.Map(document.getElementById('map'), {
-                        center: { lat: 24.7136, lng: 46.6753 },
-                        zoom: 6
-                    });
-                    
-                    devices.forEach(function(d) {
-                        createGoogleMarker(d);
-                    });
-                    
-                    if (refreshMs > 0) {
-                        setInterval(refresh, refreshMs);
-                    }
-                }
+                var m = L.marker([la, ln], {
+                    icon: L.divIcon({
+                        className: '',
+                        html: '<div style="position:relative"><div style="background:' + col + ';width:24px;height:24px;border-radius:50%;border:3px solid white;box-shadow:0 2px 6px rgba(0,0,0,0.4)"></div><div class="device-label">' + nm + '</div></div>',
+                        iconSize: [120, 40],
+                        iconAnchor: [60, 32]
+                    })
+                }).addTo(map);
                 
-                function initLeafletMap() {
-                    console.log('Loading OpenStreetMap...');
-                    map = L.map('map').setView([24.7136, 46.6753], 6);
-                    
-                    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-                        attribution: '© OpenStreetMap'
-                    }).addTo(map);
-                    
-                    var bounds = L.latLngBounds();
-                    
-                    devices.forEach(function(d) {
-                        var m = createLeafletMarker(d);
-                        if (m) bounds.extend(m.getLatLng());
-                    });
-                    
-                    if (devices.length > 0) {
-                        map.fitBounds(bounds, {padding: [50, 50]});
-                    }
-                    
-                    if (refreshMs > 0) {
-                        setInterval(refresh, refreshMs);
-                    }
-                }
+                m.bindPopup(
+                    '<div style="min-width:220px">' +
+                    '<h3 style="margin:0 0 12px 0;color:#dc3545">📍 ' + nm + '</h3>' +
+                    '<p style="margin:6px 0"><b>Device ID:</b> ' + (d.device_id || 'N/A') + '</p>' +
+                    '<p style="margin:6px 0"><b>Status:</b> ' + getBdg(d.status) + '</p>' +
+                    '<p style="margin:6px 0"><b>Speed:</b> ' + (d.speed || 0) + ' km/h</p>' +
+                    '<p style="margin:6px 0"><b>Driver:</b> ' + (d.driver_name || 'N/A') + '</p>' +
+                    '<p style="margin:6px 0"><b>Vehicle:</b> ' + (d.vehicle_id || 'N/A') + '</p>' +
+                    '<p style="margin:6px 0"><b>Location:</b> ' + (d.address || 'Unknown') + '</p>' +
+                    '<p style="margin:6px 0;font-size:11px;color:#666">Last: ' + adjTime(d.last_update) + '</p>' +
+                    '</div>'
+                );
                 
-                function createGoogleMarker(d) {
-                    var lat = parseFloat(d.latitude);
-                    var lng = parseFloat(d.longitude);
-                    if (!lat || !lng) return;
+                markers[d.id] = m;
+                return m;
+            }
+            
+            function refr() {
+                fetch('/idara_tracking/devices/json', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({jsonrpc: '2.0', method: 'call', params: {}, id: Date.now()})
+                })
+                .then(function(r) { return r.json(); })
+                .then(function(data) {
+                    var dvs = data.result;
+                    if (!dvs || !Array.isArray(dvs)) return;
                     
-                    var color = getColor(d.status);
-                    var name = d.name || d.device_id || 'Unknown';
+                    document.getElementById('device-count').textContent = dvs.length + ' Devices';
                     
-                    var marker = new google.maps.Marker({
-                        position: { lat: lat, lng: lng },
-                        map: map,
-                        title: name,
-                        label: {
-                            text: name,
-                            color: 'black',
-                            fontSize: '11px',
-                            fontWeight: 'bold'
-                        },
-                        icon: {
-                            path: google.maps.SymbolPath.CIRCLE,
-                            scale: 10,
-                            fillColor: color,
-                            fillOpacity: 1,
-                            strokeColor: 'white',
-                            strokeWeight: 3
+                    dvs.forEach(function(d) {
+                        var m = markers[d.id];
+                        if (m) {
+                            m.setLatLng([parseFloat(d.latitude), parseFloat(d.longitude)]);
+                            var col = getCol(d.status);
+                            var nm = d.name || d.device_id || 'Unknown';
+                            m.setIcon(L.divIcon({
+                                className: '',
+                                html: '<div style="position:relative"><div style="background:' + col + ';width:24px;height:24px;border-radius:50%;border:3px solid white;box-shadow:0 2px 6px rgba(0,0,0,0.4)"></div><div class="device-label">' + nm + '</div></div>',
+                                iconSize: [120, 40],
+                                iconAnchor: [60, 32]
+                            }));
+                        } else {
+                            addMrk(d);
                         }
                     });
-                    
-                    var info = new google.maps.InfoWindow({
-                        content: '<div style="min-width:220px"><h3 style="margin:0 0 12px 0;color:#dc3545">📍 ' + name + '</h3>' +
-                                '<p style="margin:6px 0;font-size:13px"><b>Device ID:</b> ' + (d.device_id || 'N/A') + '</p>' +
-                                '<p style="margin:6px 0;font-size:13px"><b>Status:</b> ' + getStatusBadge(d.status) + '</p>' +
-                                '<p style="margin:6px 0;font-size:13px"><b>Speed:</b> ' + (d.speed || 0) + ' km/h</p>' +
-                                '<p style="margin:6px 0;font-size:13px"><b>Driver:</b> ' + (d.driver_name || 'N/A') + '</p>' +
-                                '<p style="margin:6px 0;font-size:13px"><b>Vehicle:</b> ' + (d.vehicle_id || 'N/A') + '</p>' +
-                                '<p style="margin:6px 0;font-size:13px"><b>Location:</b> ' + (d.address || 'Unknown') + '</p>' +
-                                '<p style="margin:6px 0;font-size:11px;color:#666">Last: ' + adjustTime(d.last_update) + '</p></div>'
-                    });
-                    
-                    marker.addListener('click', function() {
-                        info.open(map, marker);
-                    });
-                    
-                    markers[d.id] = marker;
-                }
-                
-                function createLeafletMarker(d) {
-                    var lat = parseFloat(d.latitude);
-                    var lng = parseFloat(d.longitude);
-                    if (!lat || !lng) return null;
-                    
-                    var color = getColor(d.status);
-                    var name = d.name || d.device_id || 'Unknown';
-                    
-                    var m = L.marker([lat, lng], {
-                        icon: L.divIcon({
-                            className: 'custom-marker',
-                            html: '<div style="position:relative"><div style="background:' + color + ';width:24px;height:24px;border-radius:50%;border:3px solid white;box-shadow:0 2px 6px rgba(0,0,0,0.4)"></div><div class="device-label">' + name + '</div></div>',
-                            iconSize: [120, 40],
-                            iconAnchor: [60, 32]
-                        })
-                    }).addTo(map);
-                    
-                    m.bindPopup('<div style="min-width:220px"><h3 style="margin:0 0 12px 0;color:#dc3545">📍 ' + name + '</h3>' +
-                                '<p style="margin:6px 0;font-size:13px"><b>Device ID:</b> ' + (d.device_id || 'N/A') + '</p>' +
-                                '<p style="margin:6px 0;font-size:13px"><b>Status:</b> ' + getStatusBadge(d.status) + '</p>' +
-                                '<p style="margin:6px 0;font-size:13px"><b>Speed:</b> ' + (d.speed || 0) + ' km/h</p>' +
-                                '<p style="margin:6px 0;font-size:13px"><b>Driver:</b> ' + (d.driver_name || 'N/A') + '</p>' +
-                                '<p style="margin:6px 0;font-size:13px"><b>Vehicle:</b> ' + (d.vehicle_id || 'N/A') + '</p>' +
-                                '<p style="margin:6px 0;font-size:13px"><b>Location:</b> ' + (d.address || 'Unknown') + '</p>' +
-                                '<p style="margin:6px 0;font-size:11px;color:#666">Last: ' + adjustTime(d.last_update) + '</p></div>');
-                    
-                    markers[d.id] = m;
-                    return m;
-                }
-                
-                function updateGoogleMarker(d) {
-                    var m = markers[d.id];
-                    if (m) {
-                        m.setPosition({ lat: parseFloat(d.latitude), lng: parseFloat(d.longitude) });
-                        var color = getColor(d.status);
-                        m.setIcon({
-                            path: google.maps.SymbolPath.CIRCLE,
-                            scale: 10,
-                            fillColor: color,
-                            fillOpacity: 1,
-                            strokeColor: 'white',
-                            strokeWeight: 3
-                        });
-                    } else {
-                        createGoogleMarker(d);
-                    }
-                }
-                
-                function updateLeafletMarker(d) {
-                    var m = markers[d.id];
-                    if (m) {
-                        m.setLatLng([parseFloat(d.latitude), parseFloat(d.longitude)]);
-                        var color = getColor(d.status);
-                        var name = d.name || d.device_id || 'Unknown';
-                        m.setIcon(L.divIcon({
-                            className: 'custom-marker',
-                            html: '<div style="position:relative"><div style="background:' + color + ';width:24px;height:24px;border-radius:50%;border:3px solid white;box-shadow:0 2px 6px rgba(0,0,0,0.4)"></div><div class="device-label">' + name + '</div></div>',
-                            iconSize: [120, 40],
-                            iconAnchor: [60, 32]
-                        }));
-                    } else {
-                        createLeafletMarker(d);
-                    }
-                }
-                
-                function refresh() {
-                    fetch('/idara_tracking/devices/json', {
-                        method: 'POST',
-                        headers: {'Content-Type': 'application/json'},
-                        body: JSON.stringify({
-                            jsonrpc: '2.0',
-                            method: 'call',
-                            params: {},
-                            id: Date.now()
-                        })
-                    })
-                    .then(function(r) { return r.json(); })
-                    .then(function(data) {
-                        var devs = data.result;
-                        if (!devs || !Array.isArray(devs)) return;
-                        
-                        document.getElementById('device-count').textContent = devs.length + ' Devices';
-                        
-                        devs.forEach(function(d) {
-                            if (mapProvider === 'google' &amp;&amp; typeof google !== 'undefined') {
-                                updateGoogleMarker(d);
-                            } else {
-                                updateLeafletMarker(d);
-                            }
-                        });
-                    })
-                    .catch(function(e) {
-                        console.error('Refresh error:', e);
-                    });
-                }
-                
-                window.addEventListener('load', initMap);
-            //]]>
+                });
+            }
+            
+            setTimeout(init, 100);
             </script>
         </t>
     </template>
