@@ -1,398 +1,248 @@
 <?xml version="1.0" encoding="utf-8"?>
 <odoo>
     <template id="tracking_map_template" name="Tracking Map">
-        <html>
-        <head>
-            <t t-if="map_provider == 'google' and google_maps_key">
-                <script t-att-src="'https://maps.googleapis.com/maps/api/js?key=' + google_maps_key"></script>
-            </t>
-            <t t-else="">
+        <t t-call="web.html_container">
+            <div class="container-fluid" style="padding: 0; margin: 0;">
                 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
                 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-            </t>
-            
-            <style>
-                body { margin: 0; padding: 0; font-family: Arial, sans-serif; }
-                #header {
-                    background: linear-gradient(135deg, #dc3545 0%, #c82333 100%);
-                    color: white;
-                    padding: 15px 20px;
-                    box-shadow: 0 2px 8px rgba(0,0,0,0.15);
-                    display: flex;
-                    align-items: center;
-                    justify-content: space-between;
-                }
-                .header-left { display: flex; align-items: center; }
-                #header img { height: 45px; margin-right: 15px; }
-                #header h1 { margin: 0; font-size: 22px; }
-                .device-count {
-                    background: #28a745;
-                    color: white;
-                    padding: 5px 15px;
-                    border-radius: 15px;
-                    font-weight: bold;
-                }
-                #map { height: calc(100vh - 80px); width: 100%; }
-                .device-label {
-                    background: white;
-                    padding: 4px 8px;
-                    border-radius: 3px;
-                    font-size: 11px;
-                    font-weight: bold;
-                    white-space: nowrap;
-                    box-shadow: 0 1px 4px rgba(0,0,0,0.3);
-                    border: 1px solid #ddd;
-                    margin-top: -8px;
-                    text-align: center;
-                }
-                .leaflet-marker-icon {
-                    transition: all 0.8s ease-in-out !important;
-                }
-            </style>
-        </head>
-        <body>
-            <div id="header">
-                <div class="header-left">
-                    <img src="/idara_tracking_integration/static/src/img/logo.png" alt="Idara Tracking"/>
-                    <h1>🗺️ Live Device Tracking</h1>
-                </div>
-                <div>
-                    <span class="device-count" id="device-count"><t t-esc="device_count or 0"/> Devices</span>
-                </div>
-            </div>
+                
+                <style>
+                    body { margin: 0; padding: 0; font-family: Arial, sans-serif; }
+                    #header {
+                        background: linear-gradient(135deg, #dc3545 0%, #c82333 100%);
+                        color: white;
+                        padding: 15px 20px;
+                        box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+                        display: flex;
+                        align-items: center;
+                        justify-content: space-between;
+                    }
+                    .header-left { display: flex; align-items: center; }
+                    #header img { height: 45px; margin-right: 15px; }
+                    #header h1 { margin: 0; font-size: 22px; }
+                    .device-count {
+                        background: #28a745;
+                        color: white;
+                        padding: 5px 15px;
+                        border-radius: 15px;
+                        font-weight: bold;
+                    }
+                    #map { height: calc(100vh - 80px); width: 100%; }
+                    .device-label {
+                        background: white;
+                        padding: 4px 8px;
+                        border-radius: 3px;
+                        font-size: 11px;
+                        font-weight: bold;
+                        white-space: nowrap;
+                        box-shadow: 0 1px 4px rgba(0,0,0,0.3);
+                        border: 1px solid #ddd;
+                        margin-top: -8px;
+                        text-align: center;
+                    }
+                    .leaflet-marker-icon {
+                        transition: all 0.8s ease-in-out !important;
+                    }
+                </style>
 
-            <div id="map"></div>
+                <div id="header">
+                    <div class="header-left">
+                        <img src="/idara_tracking_integration/static/src/img/logo.png" alt="Idara Tracking"/>
+                        <h1>🗺️ Live Device Tracking</h1>
+                    </div>
+                    <div>
+                        <span class="device-count" id="device-count"><t t-esc="device_count or 0"/> Devices</span>
+                    </div>
+                </div>
 
-            <script type="text/javascript">
-            //<![CDATA[
-                const mapProvider = '<t t-esc="map_provider"/>';
-                const googleMapsKey = '<t t-esc="google_maps_key"/>';
-                const timezoneOffset = <t t-esc="timezone_offset or 3"/>;
-                const initialDevices = <t t-raw="devices"/>;
-                const refreshInterval = <t t-esc="refresh_interval"/>;
-                
-                console.log('Map Provider:', mapProvider);
-                console.log('Initial devices:', initialDevices.length);
-                console.log('Timezone offset:', timezoneOffset, 'hours');
-                
-                let map;
-                const deviceMarkers = {};
-                
-                function initMap() {
-                    if (mapProvider === 'google' && googleMapsKey && typeof google !== 'undefined') {
-                        initGoogleMap();
-                    } else {
-                        initLeafletMap();
-                    }
-                }
-                
-                function initGoogleMap() {
-                    map = new google.maps.Map(document.getElementById('map'), {
-                        center: { lat: 24.7136, lng: 46.6753 },
-                        zoom: 6
-                    });
+                <div id="map"></div>
+
+                <script type="text/javascript">
+                //<![CDATA[
+                    const initialDevices = <t t-raw="devices"/>;
+                    const refreshInterval = <t t-esc="refresh_interval"/>;
+                    const timezoneOffset = <t t-esc="timezone_offset or 3"/>;
                     
-                    initialDevices.forEach(device => {
-                        createGoogleMarker(device);
-                    });
-                }
-                
-                function initLeafletMap() {
-                    if (typeof L === 'undefined') {
-                        console.error('Leaflet not loaded!');
-                        return;
-                    }
+                    let map;
+                    const deviceMarkers = {};
                     
-                    map = L.map('map').setView([24.7136, 46.6753], 6);
-                    
-                    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-                        attribution: '© OpenStreetMap',
-                        maxZoom: 19
-                    }).addTo(map);
-                    
-                    const bounds = L.latLngBounds();
-                    let markersAdded = 0;
-                    
-                    initialDevices.forEach(device => {
-                        const marker = createLeafletMarker(device);
-                        if (marker) {
-                            deviceMarkers[device.id.toString()] = marker;
-                            bounds.extend(marker.getLatLng());
-                            markersAdded++;
-                        }
-                    });
-                    
-                    if (markersAdded > 0) {
-                        map.fitBounds(bounds, { padding: [50, 50] });
-                    }
-                }
-                
-                function getMarkerColor(status) {
-                    const colors = {
-                        'online': '#28a745',
-                        'moving': '#007bff',
-                        'idle': '#ffc107',
-                        'offline': '#dc3545'
-                    };
-                    return colors[status] || '#dc3545';
-                }
-                
-                function getStatusBadge(status) {
-                    const badges = {
-                        'online': '🟢 Online',
-                        'moving': '🔵 Moving',
-                        'idle': '🟡 Idle',
-                        'offline': '🔴 Offline'
-                    };
-                    return badges[status] || '🔴 Offline';
-                }
-                
-                function adjustTimezone(dateStr) {
-                    if (!dateStr) return 'N/A';
-                    try {
-                        const date = new Date(dateStr + 'Z'); // Force GMT
-                        date.setHours(date.getHours() + timezoneOffset);
-                        return date.toLocaleString('en-US', { 
-                            year: 'numeric', 
-                            month: '2-digit', 
-                            day: '2-digit',
-                            hour: '2-digit', 
-                            minute: '2-digit'
-                        });
-                    } catch(e) {
-                        return dateStr;
-                    }
-                }
-                
-                function createLeafletMarker(device) {
-                    const lat = parseFloat(device.latitude);
-                    const lng = parseFloat(device.longitude);
-                    
-                    if (!lat || !lng || isNaN(lat) || isNaN(lng)) {
-                        return null;
-                    }
-                    
-                    const color = getMarkerColor(device.status);
-                    const deviceName = device.name || device.device_id || 'Unknown';
-                    
-                    const marker = L.marker([lat, lng], {
-                        icon: L.divIcon({
-                            className: 'custom-marker',
-                            html: `
-                                <div style="position: relative;">
-                                    <div style="background: ${color}; width: 24px; height: 24px; border-radius: 50%; border: 3px solid white; box-shadow: 0 2px 6px rgba(0,0,0,0.4);"></div>
-                                    <div class="device-label">${deviceName}</div>
-                                </div>
-                            `,
-                            iconSize: [120, 40],
-                            iconAnchor: [60, 32]
-                        })
-                    }).addTo(map);
-                    
-                    marker.bindPopup(`
-                        <div style="min-width: 220px; font-family: Arial;">
-                            <h3 style="margin: 0 0 12px 0; color: #dc3545; font-size: 16px;">📍 ${deviceName}</h3>
-                            <p style="margin: 6px 0; font-size: 13px;"><strong>Device ID:</strong> ${device.device_id || 'N/A'}</p>
-                            <p style="margin: 6px 0; font-size: 13px;"><strong>Status:</strong> ${getStatusBadge(device.status)}</p>
-                            <p style="margin: 6px 0; font-size: 13px;"><strong>Speed:</strong> ${device.speed || 0} km/h</p>
-                            <p style="margin: 6px 0; font-size: 13px;"><strong>Driver:</strong> ${device.driver_name || 'N/A'}</p>
-                            <p style="margin: 6px 0; font-size: 13px;"><strong>Vehicle:</strong> ${device.vehicle_id || 'N/A'}</p>
-                            <p style="margin: 6px 0; font-size: 13px;"><strong>Location:</strong> ${device.address || 'Unknown'}</p>
-                            <p style="margin: 6px 0; font-size: 11px; color: #666;">Last update: ${adjustTimezone(device.last_update)}</p>
-                        </div>
-                    `);
-                    
-                    return marker;
-                }
-                
-                function createGoogleMarker(device) {
-                    const lat = parseFloat(device.latitude);
-                    const lng = parseFloat(device.longitude);
-                    
-                    if (!lat || !lng || isNaN(lat) || isNaN(lng)) {
-                        return null;
-                    }
-                    
-                    const color = getMarkerColor(device.status);
-                    const deviceName = device.name || device.device_id || 'Unknown';
-                    
-                    const marker = new google.maps.Marker({
-                        position: { lat, lng },
-                        map: map,
-                        title: deviceName,
-                        label: {
-                            text: deviceName,
-                            color: 'black',
-                            fontSize: '11px',
-                            fontWeight: 'bold'
-                        },
-                        icon: {
-                            path: google.maps.SymbolPath.CIRCLE,
-                            scale: 10,
-                            fillColor: color,
-                            fillOpacity: 1,
-                            strokeColor: 'white',
-                            strokeWeight: 3
-                        }
-                    });
-                    
-                    const infoWindow = new google.maps.InfoWindow({
-                        content: `
-                            <div style="min-width: 220px; font-family: Arial;">
-                                <h3 style="margin: 0 0 12px 0; color: #dc3545; font-size: 16px;">📍 ${deviceName}</h3>
-                                <p style="margin: 6px 0; font-size: 13px;"><strong>Device ID:</strong> ${device.device_id || 'N/A'}</p>
-                                <p style="margin: 6px 0; font-size: 13px;"><strong>Status:</strong> ${getStatusBadge(device.status)}</p>
-                                <p style="margin: 6px 0; font-size: 13px;"><strong>Speed:</strong> ${device.speed || 0} km/h</p>
-                                <p style="margin: 6px 0; font-size: 13px;"><strong>Driver:</strong> ${device.driver_name || 'N/A'}</p>
-                                <p style="margin: 6px 0; font-size: 13px;"><strong>Vehicle:</strong> ${device.vehicle_id || 'N/A'}</p>
-                                <p style="margin: 6px 0; font-size: 13px;"><strong>Location:</strong> ${device.address || 'Unknown'}</p>
-                                <p style="margin: 6px 0; font-size: 11px; color: #666;">Last update: ${adjustTimezone(device.last_update)}</p>
-                            </div>
-                        `
-                    });
-                    
-                    marker.addListener('click', () => {
-                        infoWindow.open(map, marker);
-                    });
-                    
-                    deviceMarkers[device.id.toString()] = marker;
-                    return marker;
-                }
-                
-                function updateLeafletMarker(device) {
-                    const lat = parseFloat(device.latitude);
-                    const lng = parseFloat(device.longitude);
-                    
-                    if (!lat || !lng || isNaN(lat) || isNaN(lng)) {
-                        return;
-                    }
-                    
-                    const deviceKey = device.id.toString();
-                    const existingMarker = deviceMarkers[deviceKey];
-                    
-                    if (existingMarker) {
-                        const newLatLng = L.latLng(lat, lng);
-                        const oldLatLng = existingMarker.getLatLng();
+                    function initMap() {
+                        console.log('Initializing map...');
                         
-                        if (oldLatLng.lat !== newLatLng.lat || oldLatLng.lng !== newLatLng.lng) {
-                            existingMarker.setLatLng(newLatLng);
+                        if (typeof L === 'undefined') {
+                            console.error('Leaflet not loaded!');
+                            setTimeout(initMap, 500);
+                            return;
+                        }
+                        
+                        map = L.map('map').setView([24.7136, 46.6753], 6);
+                        
+                        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                            attribution: '© OpenStreetMap',
+                            maxZoom: 19
+                        }).addTo(map);
+                        
+                        console.log('Map initialized, adding', initialDevices.length, 'devices');
+                        
+                        const bounds = L.latLngBounds();
+                        let markersAdded = 0;
+                        
+                        initialDevices.forEach(device => {
+                            const marker = createMarker(device);
+                            if (marker) {
+                                deviceMarkers[device.id.toString()] = marker;
+                                bounds.extend(marker.getLatLng());
+                                markersAdded++;
+                            }
+                        });
+                        
+                        console.log('Added', markersAdded, 'markers');
+                        
+                        if (markersAdded > 0) {
+                            map.fitBounds(bounds, { padding: [50, 50] });
+                        }
+                        
+                        if (refreshInterval > 0) {
+                            console.log('Auto-refresh enabled:', refreshInterval / 1000, 'seconds');
+                            setInterval(refreshDevices, refreshInterval);
+                        }
+                    }
+                    
+                    function getMarkerColor(status) {
+                        const colors = {
+                            'online': '#28a745',
+                            'moving': '#007bff',
+                            'idle': '#ffc107',
+                            'offline': '#dc3545'
+                        };
+                        return colors[status] || '#dc3545';
+                    }
+                    
+                    function getStatusBadge(status) {
+                        const badges = {
+                            'online': '🟢 Online',
+                            'moving': '🔵 Moving',
+                            'idle': '🟡 Idle',
+                            'offline': '🔴 Offline'
+                        };
+                        return badges[status] || '🔴 Offline';
+                    }
+                    
+                    function adjustTimezone(dateStr) {
+                        if (!dateStr) return 'N/A';
+                        try {
+                            const date = new Date(dateStr + 'Z');
+                            date.setHours(date.getHours() + timezoneOffset);
+                            return date.toLocaleString('en-US', { 
+                                year: 'numeric', 
+                                month: '2-digit', 
+                                day: '2-digit',
+                                hour: '2-digit', 
+                                minute: '2-digit'
+                            });
+                        } catch(e) {
+                            return dateStr;
+                        }
+                    }
+                    
+                    function createMarker(device) {
+                        const lat = parseFloat(device.latitude);
+                        const lng = parseFloat(device.longitude);
+                        
+                        if (!lat || !lng || isNaN(lat) || isNaN(lng)) {
+                            console.warn('Invalid coordinates for device:', device.name);
+                            return null;
                         }
                         
                         const color = getMarkerColor(device.status);
                         const deviceName = device.name || device.device_id || 'Unknown';
                         
-                        existingMarker.setIcon(L.divIcon({
-                            className: 'custom-marker',
-                            html: `
-                                <div style="position: relative;">
-                                    <div style="background: ${color}; width: 24px; height: 24px; border-radius: 50%; border: 3px solid white; box-shadow: 0 2px 6px rgba(0,0,0,0.4);"></div>
-                                    <div class="device-label">${deviceName}</div>
-                                </div>
-                            `,
-                            iconSize: [120, 40],
-                            iconAnchor: [60, 32]
-                        }));
+                        const marker = L.marker([lat, lng], {
+                            icon: L.divIcon({
+                                className: 'custom-marker',
+                                html: '<div style="position: relative;"><div style="background: ' + color + '; width: 24px; height: 24px; border-radius: 50%; border: 3px solid white; box-shadow: 0 2px 6px rgba(0,0,0,0.4);"></div><div class="device-label">' + deviceName + '</div></div>',
+                                iconSize: [120, 40],
+                                iconAnchor: [60, 32]
+                            })
+                        }).addTo(map);
                         
-                        existingMarker.setPopupContent(`
-                            <div style="min-width: 220px; font-family: Arial;">
-                                <h3 style="margin: 0 0 12px 0; color: #dc3545; font-size: 16px;">📍 ${deviceName}</h3>
-                                <p style="margin: 6px 0; font-size: 13px;"><strong>Device ID:</strong> ${device.device_id || 'N/A'}</p>
-                                <p style="margin: 6px 0; font-size: 13px;"><strong>Status:</strong> ${getStatusBadge(device.status)}</p>
-                                <p style="margin: 6px 0; font-size: 13px;"><strong>Speed:</strong> ${device.speed || 0} km/h</p>
-                                <p style="margin: 6px 0; font-size: 13px;"><strong>Driver:</strong> ${device.driver_name || 'N/A'}</p>
-                                <p style="margin: 6px 0; font-size: 13px;"><strong>Vehicle:</strong> ${device.vehicle_id || 'N/A'}</p>
-                                <p style="margin: 6px 0; font-size: 13px;"><strong>Location:</strong> ${device.address || 'Unknown'}</p>
-                                <p style="margin: 6px 0; font-size: 11px; color: #666;">Last update: ${adjustTimezone(device.last_update)}</p>
-                            </div>
-                        `);
-                    } else {
-                        const marker = createLeafletMarker(device);
-                        if (marker) {
-                            deviceMarkers[deviceKey] = marker;
-                        }
-                    }
-                }
-                
-                function updateGoogleMarker(device) {
-                    const lat = parseFloat(device.latitude);
-                    const lng = parseFloat(device.longitude);
-                    
-                    if (!lat || !lng || isNaN(lat) || isNaN(lng)) {
-                        return;
+                        marker.bindPopup('<div style="min-width: 220px; font-family: Arial;"><h3 style="margin: 0 0 12px 0; color: #dc3545; font-size: 16px;">📍 ' + deviceName + '</h3><p style="margin: 6px 0; font-size: 13px;"><strong>Device ID:</strong> ' + (device.device_id || 'N/A') + '</p><p style="margin: 6px 0; font-size: 13px;"><strong>Status:</strong> ' + getStatusBadge(device.status) + '</p><p style="margin: 6px 0; font-size: 13px;"><strong>Speed:</strong> ' + (device.speed || 0) + ' km/h</p><p style="margin: 6px 0; font-size: 13px;"><strong>Driver:</strong> ' + (device.driver_name || 'N/A') + '</p><p style="margin: 6px 0; font-size: 13px;"><strong>Vehicle:</strong> ' + (device.vehicle_id || 'N/A') + '</p><p style="margin: 6px 0; font-size: 13px;"><strong>Location:</strong> ' + (device.address || 'Unknown') + '</p><p style="margin: 6px 0; font-size: 11px; color: #666;">Last update: ' + adjustTimezone(device.last_update) + '</p></div>');
+                        
+                        return marker;
                     }
                     
-                    const deviceKey = device.id.toString();
-                    const existingMarker = deviceMarkers[deviceKey];
-                    
-                    if (existingMarker) {
-                        existingMarker.setPosition({ lat, lng });
+                    function updateMarker(device) {
+                        const lat = parseFloat(device.latitude);
+                        const lng = parseFloat(device.longitude);
                         
-                        const color = getMarkerColor(device.status);
-                        existingMarker.setIcon({
-                            path: google.maps.SymbolPath.CIRCLE,
-                            scale: 10,
-                            fillColor: color,
-                            fillOpacity: 1,
-                            strokeColor: 'white',
-                            strokeWeight: 3
-                        });
-                    } else {
-                        createGoogleMarker(device);
-                    }
-                }
-                
-                function refreshDevices() {
-                    console.log('Fetching updated device positions...');
-                    
-                    fetch('/idara_tracking/devices/json', {
-                        method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/json',
-                        },
-                        body: JSON.stringify({
-                            jsonrpc: '2.0',
-                            method: 'call',
-                            params: {},
-                            id: new Date().getTime()
-                        })
-                    })
-                    .then(response => response.json())
-                    .then(data => {
-                        const devices = data.result;
-                        
-                        if (!devices || !Array.isArray(devices)) {
-                            console.error('Invalid devices data:', devices);
+                        if (!lat || !lng || isNaN(lat) || isNaN(lng)) {
                             return;
                         }
                         
-                        console.log('Received', devices.length, 'device updates');
+                        const deviceKey = device.id.toString();
+                        const existingMarker = deviceMarkers[deviceKey];
                         
-                        document.getElementById('device-count').textContent = devices.length + ' Devices';
-                        
-                        devices.forEach(device => {
-                            if (mapProvider === 'google' && typeof google !== 'undefined') {
-                                updateGoogleMarker(device);
-                            } else {
-                                updateLeafletMarker(device);
+                        if (existingMarker) {
+                            const newLatLng = L.latLng(lat, lng);
+                            existingMarker.setLatLng(newLatLng);
+                            
+                            const color = getMarkerColor(device.status);
+                            const deviceName = device.name || device.device_id || 'Unknown';
+                            
+                            existingMarker.setIcon(L.divIcon({
+                                className: 'custom-marker',
+                                html: '<div style="position: relative;"><div style="background: ' + color + '; width: 24px; height: 24px; border-radius: 50%; border: 3px solid white; box-shadow: 0 2px 6px rgba(0,0,0,0.4);"></div><div class="device-label">' + deviceName + '</div></div>',
+                                iconSize: [120, 40],
+                                iconAnchor: [60, 32]
+                            }));
+                        } else {
+                            const marker = createMarker(device);
+                            if (marker) {
+                                deviceMarkers[deviceKey] = marker;
                             }
-                        });
-                    })
-                    .catch(error => {
-                        console.error('Error fetching devices:', error);
-                    });
-                }
-                
-                window.addEventListener('load', function() {
-                    initMap();
-                    
-                    if (refreshInterval > 0) {
-                        console.log('Auto-refresh enabled: every', refreshInterval / 1000, 'seconds');
-                        setInterval(refreshDevices, refreshInterval);
+                        }
                     }
-                });
-            //]]>
-            </script>
-        </body>
-        </html>
+                    
+                    function refreshDevices() {
+                        console.log('Fetching updated device positions...');
+                        
+                        fetch('/idara_tracking/devices/json', {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json',
+                            },
+                            body: JSON.stringify({
+                                jsonrpc: '2.0',
+                                method: 'call',
+                                params: {},
+                                id: new Date().getTime()
+                            })
+                        })
+                        .then(response => response.json())
+                        .then(data => {
+                            const devices = data.result;
+                            
+                            if (!devices || !Array.isArray(devices)) {
+                                console.error('Invalid devices data:', devices);
+                                return;
+                            }
+                            
+                            console.log('Received', devices.length, 'device updates');
+                            document.getElementById('device-count').textContent = devices.length + ' Devices';
+                            
+                            devices.forEach(device => {
+                                updateMarker(device);
+                            });
+                        })
+                        .catch(error => {
+                            console.error('Error fetching devices:', error);
+                        });
+                    }
+                    
+                    setTimeout(initMap, 100);
+                //]]>
+                </script>
+            </div>
+        </t>
     </template>
 </odoo>
