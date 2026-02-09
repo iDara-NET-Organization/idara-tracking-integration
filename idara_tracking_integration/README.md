@@ -1,132 +1,98 @@
 # Idara Tracking Integration
 
-GPS Tracking and Fleet Management Module for Odoo
+**GPS Tracking & Fleet Management for Odoo 15-19**
 
-## Features
+[![Odoo 15](https://img.shields.io/badge/Odoo-15.0-blue)](https://www.odoo.com)
+[![Odoo 16](https://img.shields.io/badge/Odoo-16.0-blue)](https://www.odoo.com)
+[![Odoo 17](https://img.shields.io/badge/Odoo-17.0-blue)](https://www.odoo.com)
+[![Odoo 18](https://img.shields.io/badge/Odoo-18.0-blue)](https://www.odoo.com)
+[![Odoo 19](https://img.shields.io/badge/Odoo-19.0-blue)](https://www.odoo.com)
+[![License: LGPL-3](https://img.shields.io/badge/License-LGPL--3-green)](https://www.gnu.org/licenses/lgpl-3.0)
 
-- **Device Management**: Register and manage GPS tracking devices
-- **API Integration**: Fetch devices directly from your tracking API
-- **Real-time Tracking**: Monitor device locations in real-time
-- **Interactive Map**: View all devices on an interactive map
-- **Fleet Management**: Track vehicles and drivers
-- **Configuration**: Flexible API configuration for different tracking providers
-- **Status Monitoring**: Online/Offline/Moving/Idle status tracking
-- **Multi-view Support**: Dashboard, Kanban, List, Form, and Map views
+---
 
-## Installation
+## ✨ Features
 
-1. Copy the `idara_tracking_integration` folder to your Odoo addons directory
-2. Restart Odoo server
-3. Go to Apps menu
-4. Click "Update Apps List"
-5. Search for "Idara Tracking Integration"
-6. Click Install
+- 📍 Real-time GPS Tracking
+- 🗺️ Interactive Map View
+- 📊 Route History Viewer
+- 🚗 Fleet Integration
+- 🌐 GPSWOX API Integration
+- 📱 Responsive Design
+- 🔄 Auto-refresh
+- 🏢 Multi-company Support
 
-## Configuration
+---
 
-1. Go to Idara Tracking > Configuration
-2. Create a new configuration
-3. Enter your API credentials:
-   - API URL (e.g., https://api.tracking.example.com)
-   - API Key
-   - Username/Password (if required)
-   - **Google Maps API Key** (required for map visualization)
-4. Click "Test Connection" to verify
-5. Click "Fetch Devices from API" to import all devices
+## 🎯 Compatibility
 
-### Getting a Google Maps API Key
+✅ **Odoo 15.0** - Fully Supported  
+✅ **Odoo 16.0** - Fully Supported  
+✅ **Odoo 17.0** - Fully Supported  
+✅ **Odoo 18.0** - Fully Supported  
+✅ **Odoo 19.0** - Fully Supported  
 
-1. Go to [Google Cloud Console](https://console.cloud.google.com/)
-2. Create a new project or select existing one
-3. Enable **Maps JavaScript API**
-4. Go to Credentials → Create Credentials → API Key
-5. Copy the API key and paste it in the configuration
-6. (Optional) Restrict the API key to your domain for security
+**Works on Community & Enterprise editions**
 
-## API Integration
+---
 
-The module expects your API to return device data in this format:
+## 📦 Quick Installation
 
-```json
-{
-  "devices": [
-    {
-      "id": "DEVICE001",
-      "name": "Vehicle 1",
-      "imei": "123456789012345",
-      "latitude": 24.7136,
-      "longitude": 46.6753,
-      "speed": 45.5,
-      "status": "moving",
-      "address": "Riyadh, Saudi Arabia",
-      "vehicle_id": "VEH001",
-      "driver_name": "Ahmad"
-    }
-  ]
-}
+```bash
+# 1. Copy to addons
+cp -r idara_tracking_integration /path/to/odoo/addons/
+
+# 2. Restart Odoo
+sudo systemctl restart odoo
+
+# 3. Install
+Apps → Update Apps List → Search: "Idara Tracking" → Install
 ```
 
-You can customize the API integration in `models/tracking_config.py` in the `fetch_devices_from_api()` method.
+---
 
-## Map View
+## ⚙️ Configuration
 
-The module includes two map options:
+1. **Google Maps API Key**
+   - Get from: console.cloud.google.com
+   - Add in: Configuration → Google Maps API Key
 
-### Option 1: Google Maps (Recommended)
-1. Configure Google Maps API key in Configuration
-2. Open `/idara_tracking_integration/static/src/google_map.html`
-3. Replace `YOUR_GOOGLE_MAPS_API_KEY_HERE` with your actual API key
-4. Open in browser to see live tracking with Google Maps
+2. **GPSWOX Integration**
+   - API URL: https://tracking.idara.net
+   - Add credentials in Configuration
+   - Click "Test Connection"
+   - Click "Fetch Devices from API"
 
-### Option 2: OpenStreetMap (Free)
-1. Open `/idara_tracking_integration/static/src/map_template.html`
-2. No API key required
-3. Uses Leaflet.js with OpenStreetMap tiles
+---
 
-Both maps show:
-- Device locations with colored markers (green=online, blue=moving, yellow=idle, red=offline)
-- Click markers for detailed info (speed, driver, vehicle, address)
-- Auto-refresh every 30 seconds
-- Responsive design
+## 📚 Documentation
 
-For production:
-- Embed maps in Odoo views using iframes
-- Connect to real-time WebSocket for live updates
-- Add geofencing and route history features
+- [Version Compatibility Guide](VERSION_COMPATIBILITY.md)
+- [Device History Guide (Arabic)](DEVICE_HISTORY_GUIDE_AR.md)
+- [Quick Start Guide](DEVICE_HISTORY_QUICK_START.md)
+- [Changelog (Arabic)](CHANGELOG_AR.md)
 
-## Usage
+---
 
-### Fetch Devices
-- Go to Idara Tracking > Configuration
-- Select your configuration
-- Click "Fetch Devices from API"
+## 🆕 Version 2.0.0
 
-### View Devices
-- Go to Idara Tracking > Devices
-- See all devices in list/kanban view
-- Click on any device for details
-- Use "Refresh Location" to update individual device
+**What's New:**
+- ✅ Multi-version support (Odoo 15-19)
+- ✅ Automatic version detection
+- ✅ Enhanced performance
+- ✅ Better error handling
+- ✅ Comprehensive documentation
 
-### Dashboard
-- Go to Idara Tracking > Dashboard
-- Quick access to all features
-- View summary and quick links
+---
 
-## Requirements
+## 📞 Support
 
-- Odoo 15.0 or higher
-- Base module
-- Web module
-- Python requests library (for API calls)
+**Idara Net**  
+🌐 https://idaranet.com  
+📧 support@idaranet.com  
 
-## License
+---
 
-LGPL-3
-
-## Author
-
-Idara Net - https://idaranet.com
-
-## Support
-
-For customization or support, contact your administrator or Idara Net support team.
+**Version:** 2.0.0  
+**License:** LGPL-3  
+**Status:** Production Ready ✅

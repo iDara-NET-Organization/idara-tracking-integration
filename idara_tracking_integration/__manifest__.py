@@ -1,12 +1,14 @@
 # -*- coding: utf-8 -*-
 {
     'name': 'Idara Tracking Integration',
-    'version': '1.0.0',
+    'version': '2.0.0',
     'category': 'Operations',
-    'summary': 'GPS Tracking and Fleet Management Integration',
+    'summary': 'GPS Tracking and Fleet Management Integration (Odoo 15-19)',
     'description': """
         Idara Tracking Integration Module
         ==================================
+        
+        Compatible with Odoo 15, 16, 17, 18, and 19
         
         This module provides comprehensive GPS tracking and fleet management capabilities:
         
@@ -18,6 +20,13 @@
         * Alerts and Notifications
         * Integration with GPSWOX tracking platform
         * Fleet Vehicle Integration
+        
+        Version Compatibility:
+        - Odoo 15.0 ✓
+        - Odoo 16.0 ✓
+        - Odoo 17.0 ✓
+        - Odoo 18.0 ✓
+        - Odoo 19.0 ✓
     """,
     'author': 'Idara Net',
     'website': 'https://idaranet.com',
