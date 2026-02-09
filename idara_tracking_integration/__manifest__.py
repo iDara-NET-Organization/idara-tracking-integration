@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 {
     'name': 'Idara Tracking Integration',
-    'version': '2.0.0',
+    'version': '2.1.1',
     'category': 'Operations',
     'summary': 'GPS Tracking and Fleet Management Integration (Odoo 15-19)',
     'description': """

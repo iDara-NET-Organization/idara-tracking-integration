@@ -361,29 +361,42 @@
                     showLoading(true);
                     clearMap();
                     
-                    odoo.define('device_history_loader', function(require) {
-                        var ajax = require('web.ajax');
+                    // Use fetch API instead of odoo.define
+                    fetch('/idara_tracking/get_device_history', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                        },
+                        body: JSON.stringify({
+                            jsonrpc: '2.0',
+                            method: 'call',
+                            params: {
+                                device_id: deviceId,
+                                from_datetime: fromDT,
+                                to_datetime: toDT
+                            },
+                            id: new Date().getTime()
+                        })
+                    })
+                    .then(response => response.json())
+                    .then(data => {
+                        showLoading(false);
                         
-                        ajax.jsonRpc('/idara_tracking/get_device_history', 'call', {
-                            device_id: deviceId,
-                            from_datetime: fromDT,
-                            to_datetime: toDT
-                        }).then(function(result) {
-                            showLoading(false);
-                            
-                            if (result.status === 'error') {
-                                showError('Error: ' + result.message);
-                                return;
-                            }
-                            
-                            if (result.status === 'success') {
-                                displayRoute(result.data);
-                            }
-                        }).catch(function(error) {
-                            showLoading(false);
-                            showError('Failed to load history: ' + error.message);
-                            console.error('Error:', error);
-                        });
+                        const result = data.result;
+                        
+                        if (result.status === 'error') {
+                            showError('Error: ' + result.message);
+                            return;
+                        }
+                        
+                        if (result.status === 'success') {
+                            displayRoute(result.data);
+                        }
+                    })
+                    .catch(error => {
+                        showLoading(false);
+                        showError('Failed to load history: ' + error.message);
+                        console.error('Error:', error);
                     });
                 }
                 
