@@ -66,4 +66,46 @@ class TrackingMapController(http.Controller):
                 })
         
         return {'devices': devices_data, 'count': len(devices_data)}
+    
+    @http.route('/idara_tracking/device_history', type='http', auth='user', website=False)
+    def device_history_viewer(self, device_id=None, **kwargs):
+        """Display device history/route viewer page"""
+        # Get all active devices for dropdown
+        devices = request.env['tracking.device'].sudo().search([('active', '=', True)])
+        
+        # Get selected device
+        selected_device = None
+        if device_id:
+            selected_device = request.env['tracking.device'].sudo().browse(int(device_id))
+        
+        # Get Google Maps API key
+        config = request.env['tracking.config'].sudo().search([('active', '=', True)], limit=1)
+        google_maps_key = config.google_maps_api_key if config else ''
+        
+        return request.render('idara_tracking_integration.device_history_template', {
+            'devices': devices,
+            'selected_device': selected_device,
+            'google_maps_key': google_maps_key,
+        })
+    
+    @http.route('/idara_tracking/get_device_history', type='json', auth='user')
+    def get_device_history(self, device_id, from_datetime, to_datetime, **kwargs):
+        """API endpoint to get device history data"""
+        try:
+            device = request.env['tracking.device'].sudo().browse(int(device_id))
+            
+            if not device.exists():
+                return {'status': 'error', 'message': 'Device not found'}
+            
+            # Get history from GPSWOX API
+            result = device.get_device_history(from_datetime, to_datetime)
+            
+            return result
+            
+        except Exception as e:
+            import traceback
+            import logging
+            _logger = logging.getLogger(__name__)
+            _logger.error(traceback.format_exc())
+            return {'status': 'error', 'message': str(e)}
 

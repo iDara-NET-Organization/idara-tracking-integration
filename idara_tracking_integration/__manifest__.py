@@ -11,11 +11,13 @@
         This module provides comprehensive GPS tracking and fleet management capabilities:
         
         * Device Management
-        * Real-time Location Tracking
+        * Real-time Location Tracking with Live Map View
+        * Interactive Route History Viewer
+        * Historical Route Playback with Timeline
         * Geofencing
-        * Route History
         * Alerts and Notifications
-        * Integration with tracking devices
+        * Integration with GPSWOX tracking platform
+        * Fleet Vehicle Integration
     """,
     'author': 'Idara Net',
     'website': 'https://idaranet.com',
@@ -24,10 +26,12 @@
     'data': [
         'security/ir.model.access.csv',
         'views/templates/tracking_map_template.xml',
+        'views/templates/device_history_template.xml',
         'views/tracking_device_views.xml',
         'views/tracking_config_views.xml',
         'views/fleet_vehicle_views.xml',
         'views/tracking_location_views.xml',
+        'views/device_history_views.xml',
         'views/tracking_menu_views.xml',
     ],
     'assets': {

@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <!-- Device History Action -->
+    <record id="action_device_history" model="ir.actions.act_url">
+        <field name="name">Device Route History</field>
+        <field name="url">/idara_tracking/device_history</field>
+        <field name="target">new</field>
+    </record>
+</odoo>

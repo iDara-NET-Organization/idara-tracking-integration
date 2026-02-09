@@ -26,4 +26,11 @@
               parent="menu_tracking_root"
               sequence="30"
               action="action_tracking_map_view"/>
+
+    <!-- Device History Menu -->
+    <menuitem id="menu_device_history"
+              name="Route History"
+              parent="menu_tracking_root"
+              sequence="40"
+              action="action_device_history"/>
 </odoo>

@@ -8,6 +8,7 @@
             <form string="Tracking Device">
                 <header>
                     <button name="refresh_location" string="Refresh Location" type="object" class="btn-primary" icon="fa-refresh" title="Refresh Location"/>
+                    <button name="action_view_history" string="View Route History" type="object" class="btn-info" icon="fa-route" title="View Device Route History"/>
                     <button name="action_view_fleet_vehicle" string="View Vehicle" type="object" class="btn-secondary" icon="fa-car" attrs="{'invisible': [('fleet_vehicle_id', '=', False)]}" title="View Fleet Vehicle"/>
                     <field name="status" widget="statusbar" statusbar_visible="online,moving,idle,offline"/>
                 </header>
