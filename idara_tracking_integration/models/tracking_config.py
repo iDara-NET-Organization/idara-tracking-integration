@@ -158,7 +158,15 @@ class TrackingConfig(models.Model):
             
             _logger.info(f'Successfully logged in. Got user_api_hash')
             
-            # Step 2: Get ALL devices using pagination
+            # DEBUGGING: Show login response to user
+            debug_login = {
+                'status': login_result.get('status'),
+                'user_api_hash': user_api_hash[:20] + '...' if user_api_hash else None,
+                'full_response_keys': list(login_result.keys())
+            }
+            _logger.info(f'Login response details: {debug_login}')
+            
+            # Step 2: Get ALL devices (GPSWOX returns groups with items)
             devices_url = self.api_url.strip()
             if not devices_url.startswith('http'):
                 devices_url = f'https://{devices_url}'
@@ -167,74 +175,26 @@ class TrackingConfig(models.Model):
             
             _logger.info(f'Fetching devices from: {devices_url}')
             
-            all_devices = []
-            page = 1
-            per_page = 500  # Maximum devices per page
+            # GPSWOX returns groups, so we just need one call (no pagination needed)
+            devices_params = {'user_api_hash': user_api_hash}
             
-            while True:
-                devices_params = {
-                    'user_api_hash': user_api_hash,
-                    'page': page,
-                    'limit': per_page
-                }
-                
-                _logger.info(f'Fetching page {page} with limit {per_page}')
-                
-                devices_response = requests.get(devices_url, params=devices_params, timeout=30)
-                
-                _logger.info(f'Page {page} Response Status: {devices_response.status_code}')
-                
-                if devices_response.status_code != 200:
-                    if page == 1:
-                        # First page failed
-                        return self._show_error(
-                            'Failed to Get Devices',
-                            f'Could not fetch devices. Status: {devices_response.status_code}\nResponse: {devices_response.text[:200]}'
-                        )
-                    else:
-                        # No more pages
-                        break
-                
-                try:
-                    page_data = devices_response.json()
-                except:
-                    if page == 1:
-                        return self._show_error('Invalid Devices Response', f'Devices response is not JSON: {devices_response.text[:500]}')
-                    else:
-                        break
-                
-                # Extract devices from this page
-                if isinstance(page_data, dict) and 'items' in page_data:
-                    page_devices = page_data['items']
-                elif isinstance(page_data, list):
-                    page_devices = page_data
-                else:
-                    page_devices = []
-                
-                if not page_devices or len(page_devices) == 0:
-                    # No more devices
-                    _logger.info(f'No devices on page {page}, stopping pagination')
-                    break
-                
-                _logger.info(f'Found {len(page_devices)} devices on page {page}')
-                all_devices.extend(page_devices)
-                
-                # If we got less than per_page devices, this is the last page
-                if len(page_devices) < per_page:
-                    _logger.info(f'Got {len(page_devices)} devices (less than {per_page}), this is the last page')
-                    break
-                
-                page += 1
-                
-                # Safety limit to prevent infinite loops
-                if page > 100:
-                    _logger.warning('Reached page limit of 100, stopping')
-                    break
+            devices_response = requests.get(devices_url, params=devices_params, timeout=30)
             
-            _logger.info(f'Total devices fetched across all pages: {len(all_devices)}')
+            _logger.info(f'Response Status: {devices_response.status_code}')
             
-            # Process all devices
-            return self._process_gpswox_devices({'items': all_devices})
+            if devices_response.status_code != 200:
+                return self._show_error(
+                    'Failed to Get Devices',
+                    f'Could not fetch devices. Status: {devices_response.status_code}\nResponse: {devices_response.text[:200]}'
+                )
+            
+            try:
+                groups_data = devices_response.json()
+            except:
+                return self._show_error('Invalid Devices Response', f'Devices response is not JSON: {devices_response.text[:500]}')
+            
+            # Process all devices from all groups
+            return self._process_gpswox_devices(groups_data)
             
         except ImportError as e:
             return self._show_error(
@@ -259,132 +219,6 @@ class TrackingConfig(models.Model):
                 f'{type(e).__name__}: {str(e)[:300]}'
             )
     
-    def _process_gpswox_devices(self, devices_data):
-        """Process GPSWOX devices response"""
-        from datetime import datetime
-        import logging
-        
-        _logger = logging.getLogger(__name__)
-        
-        _logger.info(f'Processing GPSWOX response. Type: {type(devices_data)}')
-        _logger.info(f'Response keys: {devices_data.keys() if isinstance(devices_data, dict) else "Not a dict"}')
-        _logger.info(f'Full response (first 2000 chars): {str(devices_data)[:2000]}')
-        
-        created_count = 0
-        updated_count = 0
-        
-        # GPSWOX returns devices in 'items' key
-        if isinstance(devices_data, dict) and 'items' in devices_data:
-            devices_list = devices_data['items']
-        elif isinstance(devices_data, list):
-            devices_list = devices_data
-        elif isinstance(devices_data, dict):
-            # Try other possible keys
-            devices_list = devices_data.get('data', devices_data.get('devices', []))
-        else:
-            return self._show_error('Invalid Format', f'Unexpected devices data format: {type(devices_data)}')
-        
-        if not devices_list:
-            return {
-                'type': 'ir.actions.client',
-                'tag': 'display_notification',
-                'params': {
-                    'title': 'No Devices Found',
-                    'message': 'GPSWOX API returned no devices. Please add devices in your GPSWOX panel first.',
-                    'type': 'warning',
-                    'sticky': True,
-                }
-            }
-        
-        _logger.info(f'Found {len(devices_list)} devices to process')
-        
-        for device_info in devices_list:
-            try:
-                # Log each device
-                _logger.info(f'Processing device: {device_info}')
-                
-                # GPSWOX uses 'id' as the main identifier
-                device_id = str(device_info.get('id') or device_info.get('imei', ''))
-                if not device_id:
-                    _logger.warning(f'Skipping device without ID: {device_info}')
-                    continue
-                
-                # GPSWOX field: 'name' for device name
-                device_name = str(device_info.get('name', f'Device {device_id}')).strip()
-                
-                _logger.info(f'Device ID: {device_id}, Name: "{device_name}"')
-                
-                existing_device = self.env['tracking.device'].search([
-                    ('device_id', '=', device_id),
-                    ('config_id', '=', self.id)
-                ], limit=1)
-                
-                # Extract coordinates
-                lat = float(device_info.get('lat', 0) or 0)
-                lng = float(device_info.get('lng', 0) or 0)
-                
-                # Extract other fields
-                imei = str(device_info.get('imei', device_id))
-                speed = float(device_info.get('speed', 0) or 0)
-                address = str(device_info.get('address', ''))
-                
-                # Status mapping
-                online = device_info.get('online')
-                if online == 1:
-                    status = 'online'
-                elif online == 0:
-                    status = 'offline'
-                else:
-                    status = 'offline'
-                
-                # Check if moving
-                if speed > 5:
-                    status = 'moving'
-                elif speed > 0 and online == 1:
-                    status = 'idle'
-                
-                vals = {
-                    'name': device_name,
-                    'device_id': device_id,
-                    'imei': imei,
-                    'config_id': self.id,
-                    'latitude': lat,
-                    'longitude': lng,
-                    'speed': speed,
-                    'address': address,
-                    'status': status,
-                    'vehicle_id': device_info.get('plate_number', ''),
-                    'driver_name': device_info.get('driver_name', ''),
-                    'last_update': datetime.now(),
-                }
-                
-                _logger.info(f'Saving device with values: {vals}')
-                
-                if existing_device:
-                    existing_device.write(vals)
-                    updated_count += 1
-                    _logger.info(f'✓ Updated: {device_name}')
-                else:
-                    self.env['tracking.device'].create(vals)
-                    created_count += 1
-                    _logger.info(f'✓ Created: {device_name}')
-                    
-            except Exception as e:
-                _logger.error(f'Failed to process device: {e}', exc_info=True)
-                continue
-        
-        _logger.info(f'Sync complete. Created: {created_count}, Updated: {updated_count}')
-        
-        return {
-            'type': 'ir.actions.client',
-            'tag': 'display_notification',
-            'params': {
-                'title': 'GPSWOX Devices Synced',
-                'message': f'Total: {created_count + updated_count} devices\n✓ Created: {created_count}\n✓ Updated: {updated_count}',
-                'type': 'success',
-                'sticky': False,
-            }
-        }
         """Process GPSWOX devices response"""
         from datetime import datetime
         import logging
@@ -646,7 +480,100 @@ class TrackingConfig(models.Model):
         """Create demo devices for testing - separate button"""
         return self._create_demo_devices()
     
-    def delete_all_devices(self):
+    def view_api_response(self):
+        """Debug: View raw API response"""
+        self.ensure_one()
+        
+        if not self.username or not self.password:
+            return self._show_error('Missing Credentials', 'Please enter username and password first.')
+        
+        try:
+            import requests
+            import json
+            
+            # Login
+            login_url = f"{self.api_url.strip()}/api/login"
+            login_data = {'email': self.username, 'password': self.password}
+            login_response = requests.post(login_url, data=login_data, timeout=30)
+            
+            if login_response.status_code != 200:
+                return self._show_error('Login Failed', f'Status: {login_response.status_code}\n\n{login_response.text}')
+            
+            login_result = login_response.json()
+            user_api_hash = login_result.get('user_api_hash')
+            
+            # Get devices (first page only for debugging)
+            devices_url = f"{self.api_url.strip()}/api/get_devices"
+            devices_params = {'user_api_hash': user_api_hash, 'page': 1, 'limit': 5}
+            devices_response = requests.get(devices_url, params=devices_params, timeout=30)
+            
+            if devices_response.status_code != 200:
+                return self._show_error('Get Devices Failed', f'Status: {devices_response.status_code}\n\n{devices_response.text}')
+            
+            devices_data = devices_response.json()
+            
+            # Format the response nicely
+            response_text = f"""
+=== GPSWOX API RESPONSE DEBUG ===
+
+LOGIN RESPONSE:
+{json.dumps(login_result, indent=2, ensure_ascii=False)}
+
+---
+
+DEVICES RESPONSE (First 5 devices):
+{json.dumps(devices_data, indent=2, ensure_ascii=False)}
+
+---
+
+ANALYSIS:
+- Response Type: {type(devices_data).__name__}
+- Top Level Keys: {list(devices_data.keys()) if isinstance(devices_data, dict) else 'Not a dict'}
+- Number of Devices: {len(devices_data.get('items', devices_data)) if isinstance(devices_data, dict) else len(devices_data) if isinstance(devices_data, list) else 0}
+
+FIRST DEVICE FIELDS:
+"""
+            
+            # Get first device
+            if isinstance(devices_data, dict) and 'items' in devices_data and len(devices_data['items']) > 0:
+                first_device = devices_data['items'][0]
+                response_text += json.dumps(first_device, indent=2, ensure_ascii=False)
+            elif isinstance(devices_data, list) and len(devices_data) > 0:
+                first_device = devices_data[0]
+                response_text += json.dumps(first_device, indent=2, ensure_ascii=False)
+            else:
+                response_text += "No devices found"
+            
+            # Create a temporary text file to show the response
+            import tempfile
+            import base64
+            
+            with tempfile.NamedTemporaryFile(mode='w', suffix='.txt', delete=False, encoding='utf-8') as f:
+                f.write(response_text)
+                temp_path = f.name
+            
+            with open(temp_path, 'rb') as f:
+                file_content = base64.b64encode(f.read()).decode()
+            
+            # Create attachment
+            attachment = self.env['ir.attachment'].create({
+                'name': f'GPSWOX_API_Response_{fields.Datetime.now()}.txt',
+                'type': 'binary',
+                'datas': file_content,
+                'res_model': self._name,
+                'res_id': self.id,
+                'mimetype': 'text/plain',
+            })
+            
+            return {
+                'type': 'ir.actions.act_url',
+                'url': f'/web/content/{attachment.id}?download=true',
+                'target': 'new',
+            }
+            
+        except Exception as e:
+            import traceback
+            return self._show_error('Error', f'{str(e)}\n\n{traceback.format_exc()}')
         """Delete all devices for this configuration"""
         self.ensure_one()
         
