@@ -219,6 +219,7 @@ class TrackingConfig(models.Model):
                 f'{type(e).__name__}: {str(e)[:300]}'
             )
     
+    def _process_gpswox_devices(self, groups_data):
         """Process GPSWOX devices response"""
         from datetime import datetime
         import logging
