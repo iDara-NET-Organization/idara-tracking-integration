@@ -60,7 +60,7 @@
                         <h1>🗺️ Live Device Tracking</h1>
                     </div>
                     <div>
-                        <span class="device-count" id="device-count"><t t-esc="device_count"/> Devices</span>
+                        <span class="device-count" id="device-count"><t t-esc="device_count or 0"/> Devices</span>
                     </div>
                 </div>
 
