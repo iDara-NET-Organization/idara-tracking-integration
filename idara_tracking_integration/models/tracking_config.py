@@ -103,73 +103,136 @@ class TrackingConfig(models.Model):
         if not self.api_url:
             return self._show_error('Configuration Error', 'API URL is required. Please configure it first.')
         
-        import requests
-        import json
-        from datetime import datetime
-        import logging
-        
-        _logger = logging.getLogger(__name__)
-        
         try:
+            import requests
+            import json
+            from datetime import datetime
+            import logging
+            
+            _logger = logging.getLogger(__name__)
+            
             # Prepare API request
-            headers = {'Content-Type': 'application/json'}
+            headers = {'Content-Type': 'application/json', 'Accept': 'application/json'}
+            auth = None
             
             # Add authentication
-            auth = None
             if self.api_key:
                 headers['Authorization'] = f'Bearer {self.api_key}'
+                _logger.info(f'Using Bearer token authentication')
             elif self.username and self.password:
                 auth = (self.username, self.password)
+                _logger.info(f'Using Basic authentication with username: {self.username}')
+            else:
+                _logger.warning('No authentication configured')
             
             # Build URL
-            url = self.api_url
+            url = self.api_url.strip()
             if not url.startswith('http'):
                 url = f'https://{url}'
             if not url.endswith('/devices'):
                 url = f'{url}/devices' if url.endswith('/') else f'{url}/devices'
             
             _logger.info(f'Fetching devices from: {url}')
+            _logger.info(f'Headers: {headers}')
             
             # Make API request
-            response = requests.get(url, headers=headers, auth=auth, timeout=30)
+            response = requests.get(url, headers=headers, auth=auth, timeout=30, verify=True)
             
-            _logger.info(f'API Response Status: {response.status_code}')
-            _logger.info(f'API Response Headers: {response.headers}')
-            _logger.info(f'API Response Text (first 500 chars): {response.text[:500]}')
+            _logger.info(f'Response Status: {response.status_code}')
+            _logger.info(f'Response Headers: {dict(response.headers)}')
+            _logger.info(f'Response Content-Type: {response.headers.get("Content-Type", "Unknown")}')
+            _logger.info(f'Response Length: {len(response.content)} bytes')
+            _logger.info(f'Response Text (first 1000 chars): {response.text[:1000]}')
             
-            # Check response status first
+            # Check response status
             if response.status_code == 401:
-                return self._show_error('Authentication Error', 'Invalid API credentials. Check your API Key or Username/Password.')
+                return self._show_error(
+                    'Authentication Error', 
+                    'Invalid credentials (401). Please check your API Key or Username/Password.'
+                )
+            elif response.status_code == 403:
+                return self._show_error(
+                    'Access Forbidden', 
+                    'Access denied (403). Your credentials may not have permission to access devices.'
+                )
             elif response.status_code == 404:
-                return self._show_error('Not Found', f'API endpoint not found: {url}. Please check your API URL.')
-            elif response.status_code >= 400:
-                return self._show_error('API Error', f'API returned error {response.status_code}: {response.text[:200]}')
+                return self._show_error(
+                    'Not Found', 
+                    f'API endpoint not found (404). URL attempted: {url}\n\nPlease verify your API URL is correct.'
+                )
+            elif response.status_code >= 500:
+                return self._show_error(
+                    'Server Error', 
+                    f'API server error ({response.status_code}). The tracking server is having issues. Response: {response.text[:200]}'
+                )
+            elif response.status_code != 200:
+                return self._show_error(
+                    f'HTTP Error {response.status_code}', 
+                    f'API returned error. Response: {response.text[:300]}'
+                )
             
             # Check if response is empty
-            if not response.text or response.text.strip() == '':
-                return self._show_error('Empty Response', 'API returned empty response. Please check if there are any devices in your tracking system.')
+            if not response.content or len(response.content) == 0:
+                return self._show_error(
+                    'Empty Response', 
+                    'API returned completely empty response. This might mean:\n1. No devices registered\n2. API endpoint incorrect\n3. Server issue'
+                )
+            
+            # Check content type
+            content_type = response.headers.get('Content-Type', '')
+            if 'json' not in content_type.lower():
+                return self._show_error(
+                    'Invalid Content Type',
+                    f'API returned {content_type} instead of JSON. Response preview: {response.text[:200]}'
+                )
             
             # Try to parse JSON
             try:
                 devices_data = response.json()
+                _logger.info(f'Parsed JSON successfully. Type: {type(devices_data)}')
+                _logger.info(f'JSON keys: {devices_data.keys() if isinstance(devices_data, dict) else "Not a dict"}')
             except json.JSONDecodeError as e:
                 return self._show_error(
                     'Invalid JSON', 
-                    f'API returned invalid JSON. Response: {response.text[:200]}... Error: {str(e)}'
+                    f'API response is not valid JSON.\n\nError: {str(e)}\n\nResponse preview: {response.text[:500]}\n\nPlease check your API documentation.'
+                )
+            except Exception as e:
+                return self._show_error(
+                    'Parse Error',
+                    f'Could not parse response: {str(e)}\n\nResponse: {response.text[:500]}'
                 )
             
             # Process devices
             return self._process_api_devices(devices_data)
             
+        except ImportError as e:
+            return self._show_error(
+                'Missing Library',
+                f'Python requests library not installed: {str(e)}\n\nPlease install it: pip install requests --break-system-packages'
+            )
+        except requests.exceptions.SSLError as e:
+            return self._show_error(
+                'SSL Error',
+                f'SSL certificate verification failed. This might be a self-signed certificate.\n\nError: {str(e)[:200]}'
+            )
         except requests.exceptions.ConnectionError as e:
-            return self._show_error('Connection Error', f'Could not connect to API at {self.api_url}. Check your internet connection and API URL. Error: {str(e)[:100]}')
+            return self._show_error(
+                'Connection Error', 
+                f'Cannot connect to {self.api_url}\n\nPossible reasons:\n1. URL is incorrect\n2. Server is down\n3. Network/firewall blocking\n\nError: {str(e)[:200]}'
+            )
         except requests.exceptions.Timeout:
-            return self._show_error('Timeout Error', f'API request timed out after 30 seconds. The server at {self.api_url} is not responding.')
-        except requests.exceptions.RequestException as e:
-            return self._show_error('Request Error', f'Failed to make API request: {str(e)[:200]}')
+            return self._show_error(
+                'Timeout', 
+                f'Request timed out after 30 seconds.\n\nThe server at {self.api_url} is not responding. Please check if the server is online.'
+            )
         except Exception as e:
-            _logger.exception('Unexpected error in fetch_devices_from_api')
-            return self._show_error('Unexpected Error', f'An unexpected error occurred: {str(e)[:200]}')
+            import traceback
+            error_trace = traceback.format_exc()
+            _logger.error(f'Unexpected error: {error_trace}')
+            return self._show_error(
+                'Unexpected Error',
+                f'An unexpected error occurred:\n\n{str(e)}\n\nType: {type(e).__name__}\n\nPlease check the Odoo logs for full details.'
+            )
     
     def create_demo_devices(self):
         """Create demo devices for testing - separate button"""
